@@ -25,9 +25,24 @@ python quantum_mvp.py
 
 ## File map
 - `quantum_mvp.py` — autonomous quantum loop + optimizers + tests
+- `hybrid_lab/` — hybrid physical-quantum scaffolding (sensor noise → error map → control)
 
 ## Next upgrades (ideas)
 - Add depolarizing + amplitude damping noise
 - Scale to 2–4 qubits with a toy Hamiltonian
 - Add convergence plots
 - Swap backend to Qiskit/Aer with the same interface
+
+## Hybrid physical-quantum lab (scaffold)
+This adds a minimal pipeline for:
+- synthetic sensor noise (stand-in for Isaac Sim)
+- mapping physical disturbance → quantum error rates
+- training a control policy against disturbances
+
+Run the hybrid demo:
+```bash
+python -m hybrid_lab.train_hybrid
+```
+
+Note: `IsaacSimNoiseSource` is a placeholder. Swap in your Isaac Sim
+sensor stream or log replay by implementing `next_sample()` there.
