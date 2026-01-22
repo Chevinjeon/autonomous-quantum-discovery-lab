@@ -5,7 +5,7 @@ import random
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from quantum_mvp import AutonomousQuantumLab, QuantumBackendSim
+from autonomous_quantum_lab import AutonomousQuantumLab, QuantumBackendSim
 
 from .control_policy import Features, LinearPolicy, PolicyParams, feature_vector
 from .noise_mapping import NoiseToQuantumMapConfig, QuantumErrorRates, map_noise_to_error_rates
