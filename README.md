@@ -26,12 +26,54 @@ python3 autonomous_quantum_lab.py
 ## File map
 - `autonomous_quantum_lab.py` — autonomous quantum loop + optimizers + tests
 - `hybrid_lab/` — hybrid physical-quantum scaffolding (sensor noise → error map → control)
+- `qiskit_backend.py` — Qiskit Aer backend for real circuit simulation
+- `multi_qubit_lab.py` — 2–4 qubit SPSA demo with a toy Hamiltonian
 
 ## Next upgrades (ideas)
 - Add depolarizing + amplitude damping noise
 - Scale to 2–4 qubits with a toy Hamiltonian
 - Add convergence plots
 - Swap backend to Qiskit/Aer with the same interface
+
+## Qiskit Aer backend (real circuit simulation)
+Install Qiskit:
+```bash
+pip install qiskit qiskit-aer
+```
+
+Example usage:
+```python
+from autonomous_quantum_lab import AutonomousQuantumLab, spsa_optimize
+from qiskit_backend import QiskitAerBackend, QiskitBackendConfig
+
+backend = QiskitAerBackend(QiskitBackendConfig(seed=42))
+lab = AutonomousQuantumLab(backend)
+best = spsa_optimize(lab, shots=500, p_flip=0.05, steps=40, a=0.6, c=0.2)
+print(best.theta, best.measured_energy)
+```
+
+CLI usage:
+```bash
+python3 autonomous_quantum_lab.py --backend qiskit
+```
+
+## Plots (Option C)
+Install matplotlib:
+```bash
+pip install matplotlib
+```
+
+Run with plots:
+```bash
+python3 autonomous_quantum_lab.py --plot
+python3 autonomous_quantum_lab.py --plot --plot-file plots.png
+```
+
+## Multi-qubit demo (Option B)
+Run a 2–4 qubit SPSA optimization on a toy Hamiltonian:
+```bash
+python3 multi_qubit_lab.py --qubits 3 --steps 50 --shots 500 --plot
+```
 
 ## Hybrid physical-quantum lab (scaffold)
 This adds a minimal pipeline for:
@@ -41,7 +83,7 @@ This adds a minimal pipeline for:
 
 Run the hybrid demo:
 ```bash
-python -m hybrid_lab.train_hybrid
+python3 -m hybrid_lab.train_hybrid
 ```
 
 Note: `IsaacSimNoiseSource` is a placeholder. Swap in your Isaac Sim

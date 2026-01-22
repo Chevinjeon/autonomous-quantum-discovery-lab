@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
+import argparse
 from typing import List, Optional
 
 
@@ -360,6 +361,58 @@ def run_tests() -> None:
 # 7) MAIN DEMO (runs brute force + SPSA and prints lab notebook)
 # ============================================================
 
+def _build_backend(name: str, seed: int) -> QuantumBackendSim:
+    if name == "python":
+        return QuantumBackendSim(seed=seed)
+    if name == "qiskit":
+        from qiskit_backend import QiskitAerBackend, QiskitBackendConfig
+
+        return QiskitAerBackend(QiskitBackendConfig(seed=seed))
+    raise ValueError(f"Unknown backend: {name}")
+
+
+def _plot_results(lab_bf: AutonomousQuantumLab, lab_spsa: AutonomousQuantumLab, output_path: str | None) -> None:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception as exc:  # pragma: no cover - optional dependency
+        raise RuntimeError(
+            "Plotting requires matplotlib. Install it with: pip install matplotlib"
+        ) from exc
+
+    bf_steps = [t.step for t in lab_bf.memory.trials]
+    bf_energy = [t.measured_energy for t in lab_bf.memory.trials]
+
+    spsa_steps = [t.step for t in lab_spsa.memory.trials]
+    spsa_energy = [t.measured_energy for t in lab_spsa.memory.trials]
+    spsa_theta = [t.theta for t in lab_spsa.memory.trials]
+    spsa_pflip = [t.p_flip for t in lab_spsa.memory.trials]
+
+    fig, axes = plt.subplots(3, 1, figsize=(8, 10), sharex=False)
+
+    axes[0].plot(bf_steps, bf_energy, label="brute-force energy", alpha=0.7)
+    axes[0].plot(spsa_steps, spsa_energy, label="SPSA energy", alpha=0.9)
+    axes[0].set_title("Energy vs step")
+    axes[0].set_xlabel("step")
+    axes[0].set_ylabel("energy")
+    axes[0].legend()
+
+    axes[1].plot(spsa_steps, spsa_theta, color="tab:orange")
+    axes[1].set_title("Theta trajectory (SPSA)")
+    axes[1].set_xlabel("step")
+    axes[1].set_ylabel("theta (rad)")
+
+    axes[2].plot(spsa_steps, spsa_pflip, color="tab:green")
+    axes[2].set_title("Noise drift (p_flip)")
+    axes[2].set_xlabel("step")
+    axes[2].set_ylabel("p_flip")
+
+    fig.tight_layout()
+    if output_path:
+        fig.savefig(output_path, dpi=150)
+    else:
+        plt.show()
+
+
 def main() -> None:
     """
     Demo run:
@@ -368,11 +421,34 @@ def main() -> None:
       - Prints best results and a few recent log entries
       - Runs tests
     """
-    seed = 42
-    shots = 500
-    p_flip = 0.05
+    parser = argparse.ArgumentParser(
+        description="Autonomous quantum lab demo with optional backends."
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["python", "qiskit"],
+        default="python",
+        help="Execution backend (default: python).",
+    )
+    parser.add_argument("--seed", type=int, default=42, help="RNG seed.")
+    parser.add_argument("--shots", type=int, default=500, help="Shots per experiment.")
+    parser.add_argument("--p-flip", type=float, default=0.05, help="Bit-flip noise.")
+    parser.add_argument(
+        "--skip-tests", action="store_true", help="Skip the test harness."
+    )
+    parser.add_argument("--plot", action="store_true", help="Show plots.")
+    parser.add_argument(
+        "--plot-file",
+        default="",
+        help="Save plots to a file instead of showing them.",
+    )
+    args = parser.parse_args()
 
-    backend_bf = QuantumBackendSim(seed=seed)
+    seed = args.seed
+    shots = args.shots
+    p_flip = args.p_flip
+
+    backend_bf = _build_backend(args.backend, seed=seed)
     lab_bf = AutonomousQuantumLab(backend_bf)
 
     best_bf = brute_force_grid_search(
@@ -387,7 +463,7 @@ def main() -> None:
     print(f"Measured energy: {best_bf.measured_energy:.4f}")
     print(f"Total trials logged: {len(lab_bf.memory.trials)}")
 
-    backend_spsa = QuantumBackendSim(seed=seed)
+    backend_spsa = _build_backend(args.backend, seed=seed)
     lab_spsa = AutonomousQuantumLab(backend_spsa)
 
     best_spsa = spsa_optimize(
@@ -408,8 +484,13 @@ def main() -> None:
     for t in lab_spsa.memory.trials[-5:]:
         print(f"step={t.step:>3} theta={t.theta:>7.4f} E={t.measured_energy:>7.4f} note={t.note}")
 
-    print("\n=== RUNNING TESTS ===")
-    run_tests()
+    if args.plot:
+        output = args.plot_file.strip() or None
+        _plot_results(lab_bf, lab_spsa, output)
+
+    if not args.skip_tests:
+        print("\n=== RUNNING TESTS ===")
+        run_tests()
 
 
 if __name__ == "__main__":
