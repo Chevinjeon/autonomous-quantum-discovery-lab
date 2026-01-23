@@ -29,6 +29,12 @@ npm run dev
 
 Then open the local URL printed by Vite.
 
+Optional run logging:
+Set `VITE_RUN_LOG_ENDPOINT` to a webhook/API endpoint to capture "Run" clicks.
+```bash
+VITE_RUN_LOG_ENDPOINT="https://your-api.example.com/run" npm run dev
+```
+
 ## What you’ll see
 - Best theta found by brute-force and SPSA
 - Recent lab notebook entries (diachronic trace)

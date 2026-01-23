@@ -38,6 +38,45 @@ const QuantumDiscoveryLab = () => {
   const [backend, setBackend] = useState("simulator");
   const [convergenceRate, setConvergenceRate] = useState(0);
   const maxIterations = 100;
+  const runLogEndpoint = import.meta.env.VITE_RUN_LOG_ENDPOINT || "";
+
+  const getSessionId = () => {
+    const key = "synqubi_session_id";
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const created = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(key, created);
+    return created;
+  };
+
+  const storeRunLocal = (payload) => {
+    const key = "synqubi_run_logs";
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    const next = [payload, ...existing].slice(0, 100);
+    localStorage.setItem(key, JSON.stringify(next));
+  };
+
+  const trackRun = (payload) => {
+    const enriched = { ...payload, sessionId: getSessionId() };
+    storeRunLocal(enriched);
+
+    if (!runLogEndpoint) {
+      return;
+    }
+
+    const body = JSON.stringify(enriched);
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(runLogEndpoint, body);
+      return;
+    }
+
+    fetch(runLogEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  };
 
   const simulateQuantumCircuit = async (params, noise, depth, numShots) => {
     const idealEnergy = Math.cos(params.theta);
@@ -210,6 +249,19 @@ const QuantumDiscoveryLab = () => {
         `Backend: ${backend === "qiskit" ? "Qiskit Aer Simulator" : "Custom Quantum Simulator"}`,
         "info"
       );
+    }
+    if (!isRunning) {
+      trackRun({
+        event: "run_clicked",
+        timestamp: new Date().toISOString(),
+        backend,
+        numQubits,
+        shots,
+        noiseLevel,
+        theta: circuitParams.theta,
+        phi: circuitParams.phi,
+        lambda: circuitParams.lambda,
+      });
     }
     setIsRunning(!isRunning);
   };
