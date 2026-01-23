@@ -1,6 +1,6 @@
-# autonomous-quantum-discovery-lab
+# SynQubi
 
-Autonomous quantum discovery lab MVP. This repo demonstrates a closed-loop
+SynQubi is an autonomous quantum discovery lab MVP. This repo demonstrates a closed-loop
 experiment system that proposes circuit parameters, runs noisy measurements on
 a simulator, logs diachronic history, and optimizes toward lower energy.
 

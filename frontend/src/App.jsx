@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Plot from "react-plotly.js";
 import {
   LineChart,
   Line,
@@ -152,6 +153,8 @@ const QuantumDiscoveryLab = () => {
             energy: result.energy,
             noise: noiseLevel * 100,
             theta: result.theta,
+            phi: result.phi,
+            lambda: result.lambda,
             target: 95,
           },
         ].slice(-50)
@@ -235,9 +238,9 @@ const QuantumDiscoveryLab = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Autonomous Quantum Discovery Lab
+            SynQubi
           </h1>
-          <p className="text-gray-400">Self-Optimizing Noisy Quantum Circuit via SPSA</p>
+          <p className="text-gray-400">Autonomous Quantum Discovery Lab</p>
           <div className="flex items-center justify-center gap-4 mt-3 text-sm text-gray-500">
             <span className="flex items-center gap-1">
               <Database className="w-4 h-4" />
@@ -444,32 +447,40 @@ const QuantumDiscoveryLab = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold mb-4">Parameter Space Exploration</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis
-                  dataKey="theta"
-                  stroke="#9CA3AF"
-                  domain={[0, 2 * Math.PI]}
-                  ticks={[0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2, 2 * Math.PI]}
-                  tickFormatter={(val) => (val === Math.PI ? "π" : val.toFixed(1))}
-                />
-                <YAxis dataKey="fidelity" stroke="#9CA3AF" domain={[0, 100]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1F2937",
-                    border: "1px solid #374151",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value, name) => [
-                    name === "theta" ? value.toFixed(4) : value.toFixed(2),
-                    name === "theta" ? "θ" : "Fidelity %",
-                  ]}
-                />
-                <Scatter data={fidelityData} fill="#8B5CF6" />
-              </ScatterChart>
-            </ResponsiveContainer>
+            <h3 className="text-xl font-semibold mb-4">Parameter Space Exploration (3D)</h3>
+            <div className="h-[300px]">
+              <Plot
+                data={[
+                  {
+                    type: "scatter3d",
+                    mode: "markers",
+                    x: fidelityData.map((d) => d.theta),
+                    y: fidelityData.map((d) => d.energy),
+                    z: fidelityData.map((d) => d.fidelity),
+                    marker: {
+                      size: 4,
+                      color: fidelityData.map((d) => d.fidelity),
+                      colorscale: "Viridis",
+                      opacity: 0.8,
+                    },
+                  },
+                ]}
+                layout={{
+                  autosize: true,
+                  paper_bgcolor: "transparent",
+                  plot_bgcolor: "transparent",
+                  margin: { l: 0, r: 0, t: 0, b: 0 },
+                  scene: {
+                    xaxis: { title: "θ", color: "#9CA3AF" },
+                    yaxis: { title: "Energy", color: "#9CA3AF" },
+                    zaxis: { title: "Fidelity %", color: "#9CA3AF" },
+                    bgcolor: "rgba(0,0,0,0)",
+                  },
+                }}
+                config={{ displayModeBar: false, responsive: true }}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
           </div>
 
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
