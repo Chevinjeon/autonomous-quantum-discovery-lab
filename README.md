@@ -18,6 +18,17 @@ cd /Users/chevinjeon/Desktop/autonomous-quantum-discovery-lab
 python3 autonomous_quantum_lab.py
 ```
 
+## Frontend (React + Tailwind)
+The UI is a standalone React app under `frontend/` with Recharts visualizations.
+
+```bash
+cd /Users/chevinjeon/Desktop/autonomous-quantum-discovery-lab/frontend
+npm install
+npm run dev
+```
+
+Then open the local URL printed by Vite.
+
 ## What you’ll see
 - Best theta found by brute-force and SPSA
 - Recent lab notebook entries (diachronic trace)
