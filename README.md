@@ -35,6 +35,18 @@ Set `VITE_RUN_LOG_ENDPOINT` to a webhook/API endpoint to capture "Run" clicks.
 VITE_RUN_LOG_ENDPOINT="https://your-api.example.com/run" npm run dev
 ```
 
+## Portfolio risk lab
+Synthetic market generator + portfolio metrics (foundation for QGAN + QUBO).
+
+```bash
+python3 -m portfolio_lab.market
+```
+
+QUBO-based allocation loop:
+```bash
+python3 -m portfolio_lab.lab --assets 6 --target-assets 3 --steps 30
+```
+
 ## What you’ll see
 - Best theta found by brute-force and SPSA
 - Recent lab notebook entries (diachronic trace)
