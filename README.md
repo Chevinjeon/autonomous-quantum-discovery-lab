@@ -47,6 +47,11 @@ QUBO-based allocation loop:
 python3 -m portfolio_lab.lab --assets 6 --target-assets 3 --steps 30
 ```
 
+Export results for Excel:
+```bash
+python3 -m portfolio_lab.lab --assets 6 --target-assets 3 --steps 30 --export-csv portfolio_runs.csv
+```
+
 ## What you’ll see
 - Best theta found by brute-force and SPSA
 - Recent lab notebook entries (diachronic trace)

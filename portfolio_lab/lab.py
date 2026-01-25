@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import csv
 from typing import List
 
 import numpy as np
 
 from .market import SyntheticMarket, max_drawdown, portfolio_returns, sharpe_ratio, volatility
+from .risk import value_at_risk, conditional_value_at_risk
 from .qubo import QuboProblem, build_qubo, solve_qubo
 
 
@@ -18,6 +20,8 @@ class PortfolioTrial:
     sharpe: float
     vol: float
     drawdown: float
+    var: float
+    cvar: float
 
 
 class PortfolioRiskLab:
@@ -61,12 +65,35 @@ class PortfolioRiskLab:
             sharpe=sharpe_ratio(pr),
             vol=volatility(pr),
             drawdown=max_drawdown(pr),
+            var=value_at_risk(pr),
+            cvar=conditional_value_at_risk(pr),
         )
         self.trials.append(trial)
         return trial
 
     def best(self) -> PortfolioTrial | None:
         return max(self.trials, key=lambda t: t.sharpe) if self.trials else None
+
+    def export_csv(self, path: str) -> None:
+        if not self.trials:
+            raise RuntimeError("No trials to export.")
+        with open(path, "w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(
+                ["step", "sharpe", "volatility", "drawdown", "var", "cvar", "selected"]
+            )
+            for t in self.trials:
+                writer.writerow(
+                    [
+                        t.step,
+                        f"{t.sharpe:.6f}",
+                        f"{t.vol:.6f}",
+                        f"{t.drawdown:.6f}",
+                        f"{t.var:.6f}",
+                        f"{t.cvar:.6f}",
+                        ",".join(map(str, t.selected)),
+                    ]
+                )
 
 
 def main() -> None:
@@ -78,6 +105,7 @@ def main() -> None:
     parser.add_argument("--target-assets", type=int, default=3, help="Assets to select.")
     parser.add_argument("--penalty", type=float, default=10.0, help="Constraint penalty.")
     parser.add_argument("--seed", type=int, default=7, help="RNG seed.")
+    parser.add_argument("--export-csv", default="", help="Export trials to CSV.")
     args = parser.parse_args()
 
     market = SyntheticMarket(num_assets=args.assets, seed=args.seed)
@@ -108,6 +136,10 @@ def main() -> None:
     print(f"Volatility: {best.vol:.4f}")
     print(f"Drawdown: {best.drawdown:.4f}")
     print(f"Selected assets: {best.selected}")
+
+    if args.export_csv:
+        lab.export_csv(args.export_csv)
+        print(f"Exported trials to {args.export_csv}")
 
 
 if __name__ == "__main__":
