@@ -52,6 +52,30 @@ Export results for Excel:
 python3 -m portfolio_lab.lab --assets 6 --target-assets 3 --steps 30 --export-csv portfolio_runs.csv
 ```
 
+## AI stress tester (scenario lab)
+Generate thousands of market scenarios and extract bull/bear/stress cases.
+
+```bash
+python3 -m scenario_lab.lab --assets 6 --steps 252 --scenarios 2000 --vol-regime 1.5 --corr-shift 0.2 --export-cases cases.csv
+```
+
+## Agent architecture (current mapping)
+```
+[ Market Observer ]        -> scenario_lab inputs (market state parameters)
+        ↓
+[ Scenario Generator ]     -> scenario_lab/generator.py
+        ↓
+[ Risk Evaluator ]         -> portfolio_lab/risk.py + scenario_lab/scorer.py
+        ↓
+[ Optimization Engine ]    -> portfolio_lab/qubo.py + portfolio_lab/lab.py
+        ↓
+[ Noise Mitigation Layer ] -> autonomous_quantum_lab.py + hybrid_lab
+        ↓
+[ Decision Maker ]         -> scenario_lab bull/bear/stress selection
+        ↓
+[ Memory/Learning Layer ]  -> CSV/log outputs (expandable)
+```
+
 ## What you’ll see
 - Best theta found by brute-force and SPSA
 - Recent lab notebook entries (diachronic trace)

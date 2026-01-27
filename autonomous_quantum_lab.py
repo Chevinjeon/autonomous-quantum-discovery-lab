@@ -489,8 +489,8 @@ def main() -> None:
         _plot_results(lab_bf, lab_spsa, output)
 
     if not args.skip_tests:
-        print("\n=== RUNNING TESTS ===")
-        run_tests()
+    print("\n=== RUNNING TESTS ===")
+    run_tests()
 
 
 if __name__ == "__main__":
