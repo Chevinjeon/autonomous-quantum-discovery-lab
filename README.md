@@ -59,6 +59,39 @@ Generate thousands of market scenarios and extract bull/bear/stress cases.
 python3 -m scenario_lab.lab --assets 6 --steps 252 --scenarios 2000 --vol-regime 1.5 --corr-shift 0.2 --export-cases cases.csv
 ```
 
+## Real-time portfolio optimization (scaffold)
+Streaming market feed + low-latency solver + portfolio system integration.
+
+```bash
+python3 -m realtime_lab.lab --symbols A,B,C,D --max-assets 3 --iterations 5
+```
+
+## AWS IaC (streaming + solver scaffold)
+Terraform scaffolds:
+- Kinesis Data Stream
+- Lambda ingest to DynamoDB
+- DynamoDB latest snapshot table
+- ECS Fargate solver service + ECR repo
+
+Apply:
+```bash
+cd infra/terraform
+terraform init
+terraform apply
+```
+
+Build/push solver image:
+```bash
+cd realtime_lab/solver_service
+docker build -t synqubi-solver .
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin <ECR_REPO>
+docker tag synqubi-solver:latest <ECR_REPO>:latest
+docker push <ECR_REPO>:latest
+```
+
+Then set `solver_desired_count=1` and re-apply to start the service.
+
 ## Agent architecture (current mapping)
 ```
 [ Market Observer ]        -> scenario_lab inputs (market state parameters)
