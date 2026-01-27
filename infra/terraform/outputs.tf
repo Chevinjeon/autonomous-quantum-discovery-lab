@@ -13,3 +13,7 @@ output "solver_ecr_repository" {
 output "ecs_cluster_name" {
   value = aws_ecs_cluster.solver_cluster.name
 }
+
+output "solver_alb_dns" {
+  value = aws_lb.solver_alb.dns_name
+}

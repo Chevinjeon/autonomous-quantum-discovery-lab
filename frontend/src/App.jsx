@@ -37,8 +37,11 @@ const QuantumDiscoveryLab = () => {
   const [logs, setLogs] = useState([]);
   const [backend, setBackend] = useState("simulator");
   const [convergenceRate, setConvergenceRate] = useState(0);
+  const [solverOutput, setSolverOutput] = useState(null);
+  const [casesData, setCasesData] = useState([]);
   const maxIterations = 100;
   const runLogEndpoint = import.meta.env.VITE_RUN_LOG_ENDPOINT || "";
+  const solverEndpoint = import.meta.env.VITE_SOLVER_ENDPOINT || "";
 
   const getSessionId = () => {
     const key = "synqubi_session_id";
@@ -236,6 +239,8 @@ const QuantumDiscoveryLab = () => {
     setBestConfig({ fidelity: 0, iteration: 0, theta: 0 });
     setLogs([]);
     setConvergenceRate(0);
+    setSolverOutput(null);
+    setCasesData([]);
     addLog("System reset - Ready for new optimization run", "info");
   };
 
@@ -284,6 +289,44 @@ const QuantumDiscoveryLab = () => {
       )}
     </div>
   );
+
+  const fetchSolver = async () => {
+    if (!solverEndpoint) {
+      addLog("Solver endpoint not configured", "error");
+      return;
+    }
+    try {
+      const resp = await fetch(`${solverEndpoint}/solve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prices: { A: 100, B: 120, C: 90 },
+          max_assets: 2,
+        }),
+      });
+      const data = await resp.json();
+      setSolverOutput(data.weights || {});
+    } catch (err) {
+      addLog(`Solver error: ${err.message}`, "error");
+    }
+  };
+
+  const parseCasesCsv = (text) => {
+    const lines = text.trim().split("\n").slice(1);
+    const parsed = lines.map((line) => {
+      const [caseName, scenario, sharpe, vol, drawdown, varVal, cvar] = line.split(",");
+      return {
+        caseName,
+        scenario,
+        sharpe: Number(sharpe),
+        vol: Number(vol),
+        drawdown: Number(drawdown),
+        varVal: Number(varVal),
+        cvar: Number(cvar),
+      };
+    });
+    setCasesData(parsed);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white p-6">
@@ -551,6 +594,43 @@ const QuantumDiscoveryLab = () => {
                 >
                   <span className="text-gray-600">[{log.timestamp}]</span>
                   <span className="flex-1">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold mb-4">Realtime Solver Output</h3>
+            <button
+              onClick={fetchSolver}
+              className="mb-4 px-4 py-2 bg-blue-600 rounded text-white"
+            >
+              Fetch Weights
+            </button>
+            <pre className="text-xs text-gray-300 bg-gray-900 p-3 rounded">
+              {solverOutput ? JSON.stringify(solverOutput, null, 2) : "No data yet"}
+            </pre>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold mb-4">Stress Cases (CSV)</h3>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                file.text().then(parseCasesCsv);
+              }}
+              className="mb-3 text-sm"
+            />
+            <div className="text-xs text-gray-400 max-h-52 overflow-y-auto">
+              {casesData.length === 0 && "Upload cases.csv to view bull/bear/stress rows."}
+              {casesData.map((row, idx) => (
+                <div key={`${row.caseName}-${idx}`}>
+                  {row.caseName} | Sharpe {row.sharpe.toFixed(2)} | CVaR {row.cvar.toFixed(2)}
                 </div>
               ))}
             </div>

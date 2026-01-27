@@ -35,6 +35,9 @@ Set `VITE_RUN_LOG_ENDPOINT` to a webhook/API endpoint to capture "Run" clicks.
 VITE_RUN_LOG_ENDPOINT="https://your-api.example.com/run" npm run dev
 ```
 
+Realtime solver panel:
+Set `VITE_SOLVER_ENDPOINT` to your ALB URL (e.g. `http://...elb.amazonaws.com`).
+
 ## Portfolio risk lab
 Synthetic market generator + portfolio metrics (foundation for QGAN + QUBO).
 
@@ -59,11 +62,21 @@ Generate thousands of market scenarios and extract bull/bear/stress cases.
 python3 -m scenario_lab.lab --assets 6 --steps 252 --scenarios 2000 --vol-regime 1.5 --corr-shift 0.2 --export-cases cases.csv
 ```
 
+Use a StockTrak portfolio export for weights:
+```bash
+python3 -m scenario_lab.lab --weights-csv "/Users/chevinjeon/Downloads/RSM336-Portfolio-performance-analysis(Our Portfolio ).csv"
+```
+
 ## Real-time portfolio optimization (scaffold)
 Streaming market feed + low-latency solver + portfolio system integration.
 
 ```bash
 python3 -m realtime_lab.lab --symbols A,B,C,D --max-assets 3 --iterations 5
+```
+
+Mock Kinesis producer:
+```bash
+python3 -m realtime_lab.producer --stream synqubi-market-ticks --symbols A,B,C,D
 ```
 
 ## AWS IaC (streaming + solver scaffold)

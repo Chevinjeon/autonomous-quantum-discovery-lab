@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 
 from portfolio_lab.market import SyntheticMarket
+from portfolio_lab.import_stocktrak import load_holdings, weights_from_holdings
 from .generator import MarketState, ScenarioGenerator
 from .scorer import classify_scenarios, score_scenarios
 from .report import export_scores_csv, export_cases_csv
@@ -21,6 +22,7 @@ def main() -> None:
     parser.add_argument("--export-scores", default="", help="Export all scores to CSV.")
     parser.add_argument("--export-cases", default="", help="Export bull/bear/stress cases to CSV.")
     parser.add_argument("--seed", type=int, default=7, help="RNG seed.")
+    parser.add_argument("--weights-csv", default="", help="StockTrak CSV for weights.")
     args = parser.parse_args()
 
     market = SyntheticMarket(num_assets=args.assets, seed=args.seed)
@@ -33,7 +35,19 @@ def main() -> None:
 
     scenarios = generator.sample(args.steps, args.scenarios, state)
 
-    weights = np.ones(args.assets) / args.assets
+    if args.weights_csv:
+        holdings = load_holdings(args.weights_csv)
+        weights_map = weights_from_holdings(holdings)
+        weights = np.array(
+            [weights_map.get(h.description, 0.0) for h in holdings],
+            dtype=float,
+        )
+        if weights.sum() > 0:
+            weights = weights / weights.sum()
+        else:
+            weights = np.ones(args.assets) / args.assets
+    else:
+        weights = np.ones(args.assets) / args.assets
     scores = score_scenarios(weights, scenarios)
     cases = classify_scenarios(scores, top_n=args.top_n)
 
