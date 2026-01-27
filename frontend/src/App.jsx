@@ -602,37 +602,85 @@ const QuantumDiscoveryLab = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold mb-4">Realtime Solver Output</h3>
-            <button
-              onClick={fetchSolver}
-              className="mb-4 px-4 py-2 bg-blue-600 rounded text-white"
-            >
-              Fetch Weights
-            </button>
-            <pre className="text-xs text-gray-300 bg-gray-900 p-3 rounded">
-              {solverOutput ? JSON.stringify(solverOutput, null, 2) : "No data yet"}
-            </pre>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Realtime Solver Output</h3>
+              <button
+                onClick={fetchSolver}
+                className="px-4 py-2 bg-blue-600 rounded text-white"
+              >
+                Fetch Weights
+              </button>
+            </div>
+            <div className="overflow-hidden rounded border border-gray-700">
+              <table className="w-full text-sm text-left text-gray-300">
+                <thead className="bg-gray-900 text-gray-400">
+                  <tr>
+                    <th className="px-3 py-2">Asset</th>
+                    <th className="px-3 py-2">Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solverOutput &&
+                    Object.entries(solverOutput).map(([asset, weight]) => (
+                      <tr key={asset} className="border-t border-gray-800">
+                        <td className="px-3 py-2">{asset}</td>
+                        <td className="px-3 py-2">{Number(weight).toFixed(3)}</td>
+                      </tr>
+                    ))}
+                  {!solverOutput && (
+                    <tr>
+                      <td className="px-3 py-3 text-gray-500" colSpan={2}>
+                        No data yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold mb-4">Stress Cases (CSV)</h3>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                file.text().then(parseCasesCsv);
-              }}
-              className="mb-3 text-sm"
-            />
-            <div className="text-xs text-gray-400 max-h-52 overflow-y-auto">
-              {casesData.length === 0 && "Upload cases.csv to view bull/bear/stress rows."}
-              {casesData.map((row, idx) => (
-                <div key={`${row.caseName}-${idx}`}>
-                  {row.caseName} | Sharpe {row.sharpe.toFixed(2)} | CVaR {row.cvar.toFixed(2)}
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Stress Cases (CSV)</h3>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  file.text().then(parseCasesCsv);
+                }}
+                className="text-sm"
+              />
+            </div>
+            <div className="overflow-hidden rounded border border-gray-700 max-h-64 overflow-y-auto">
+              <table className="w-full text-sm text-left text-gray-300">
+                <thead className="bg-gray-900 text-gray-400 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2">Case</th>
+                    <th className="px-3 py-2">Sharpe</th>
+                    <th className="px-3 py-2">Vol</th>
+                    <th className="px-3 py-2">CVaR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {casesData.length === 0 && (
+                    <tr>
+                      <td className="px-3 py-3 text-gray-500" colSpan={4}>
+                        Upload cases.csv to view bull/bear/stress rows.
+                      </td>
+                    </tr>
+                  )}
+                  {casesData.map((row, idx) => (
+                    <tr key={`${row.caseName}-${idx}`} className="border-t border-gray-800">
+                      <td className="px-3 py-2">{row.caseName}</td>
+                      <td className="px-3 py-2">{row.sharpe.toFixed(2)}</td>
+                      <td className="px-3 py-2">{row.vol.toFixed(2)}</td>
+                      <td className="px-3 py-2">{row.cvar.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
