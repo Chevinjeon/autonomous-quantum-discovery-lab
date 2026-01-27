@@ -1,16 +1,16 @@
 # SynQubi
 
-SynQubi is an autonomous quantum discovery lab MVP. This repo demonstrates a closed-loop
-experiment system that proposes circuit parameters, runs noisy measurements on
-a simulator, logs diachronic history, and optimizes toward lower energy.
+SynQubi is a quantum-first portfolio optimization and risk analysis platform.
+It provides practical, hybrid quantum-classical workflows for scenario generation,
+QUBO-based optimization, and risk metrics (VaR/CVaR) with production-minded
+integration points.
 
 ## What’s included
-- A library-free quantum simulator for a 1-qubit `Ry(theta)|0>` circuit
-- Bit-flip noise + finite-shot sampling
-- Diachronic memory (lab notebook) with best/last/diff helpers
-- Brute-force grid search optimizer
-- SPSA optimizer (robust under noise)
-- Deterministic, rigorous test harness
+- Portfolio risk lab with QUBO formulation and solvers
+- Scenario lab for stress testing (bull/bear/tail cases)
+- Real-time streaming scaffold (Kinesis -> Lambda -> DynamoDB)
+- Low-latency solver service with ALB endpoint
+- Frontend dashboard for solver output and stress cases
 
 ## Quick start
 ```bash
@@ -19,7 +19,7 @@ python3 autonomous_quantum_lab.py
 ```
 
 ## Frontend (React + Tailwind)
-The UI is a standalone React app under `frontend/` with Recharts visualizations.
+The UI is a standalone React app under `frontend/` with portfolio/risk visuals.
 
 ```bash
 cd /Users/chevinjeon/Desktop/autonomous-quantum-discovery-lab/frontend
@@ -39,7 +39,7 @@ Realtime solver panel:
 Set `VITE_SOLVER_ENDPOINT` to your ALB URL (e.g. `http://...elb.amazonaws.com`).
 
 ## Portfolio risk lab
-Synthetic market generator + portfolio metrics (foundation for QGAN + QUBO).
+Synthetic market generator + portfolio metrics (foundation for QUBO/QAOA/VQE).
 
 ```bash
 python3 -m portfolio_lab.market
@@ -123,21 +123,22 @@ Then set `solver_desired_count=1` and re-apply to start the service.
 ```
 
 ## What you’ll see
-- Best theta found by brute-force and SPSA
-- Recent lab notebook entries (diachronic trace)
-- Test suite results
+- Portfolio risk metrics (Sharpe, Volatility, Drawdown, VaR, CVaR)
+- Stress-case selection (bull/bear/tail)
+- Low-latency solver outputs
 
 ## File map
-- `autonomous_quantum_lab.py` — autonomous quantum loop + optimizers + tests
-- `hybrid_lab/` — hybrid physical-quantum scaffolding (sensor noise → error map → control)
-- `qiskit_backend.py` — Qiskit Aer backend for real circuit simulation
-- `multi_qubit_lab.py` — 2–4 qubit SPSA demo with a toy Hamiltonian
+- `portfolio_lab/` — QUBO formulation, solvers, risk metrics
+- `scenario_lab/` — stress testing and scenario scoring
+- `realtime_lab/` — streaming + solver + OMS integration stubs
+- `frontend/` — portfolio/risk dashboard
+- `infra/terraform/` — AWS IaC scaffold
 
 ## Next upgrades (ideas)
-- Add depolarizing + amplitude damping noise
-- Scale to 2–4 qubits with a toy Hamiltonian
-- Add convergence plots
-- Swap backend to Qiskit/Aer with the same interface
+- Add QAOA/VQE circuit backends for QUBO problems
+- Integrate QAE-style VaR/CVaR estimation
+- Add sector/constraint encoding in QUBO
+- Add OMS adapters and audit logging
 
 ## Qiskit Aer backend (real circuit simulation)
 Install Qiskit:

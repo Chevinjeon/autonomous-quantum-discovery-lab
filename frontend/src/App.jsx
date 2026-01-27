@@ -335,7 +335,7 @@ const QuantumDiscoveryLab = () => {
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             SynQubi
           </h1>
-          <p className="text-gray-400">Autonomous Quantum Discovery Lab</p>
+          <p className="text-gray-400">Quantum Portfolio Optimization and Risk Analysis</p>
           <div className="flex items-center justify-center gap-4 mt-3 text-sm text-gray-500">
             <span className="flex items-center gap-1">
               <Database className="w-4 h-4" />
@@ -351,20 +351,20 @@ const QuantumDiscoveryLab = () => {
         <div className="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700">
           <div className="flex items-center gap-2 mb-3">
             <Settings className="w-5 h-5 text-gray-400" />
-            <h3 className="text-lg font-semibold">Experiment Configuration</h3>
+            <h3 className="text-lg font-semibold">Portfolio Configuration</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="text-sm text-gray-400 block mb-1">Qubits</label>
+              <label className="text-sm text-gray-400 block mb-1">Assets</label>
               <select
                 value={numQubits}
                 onChange={(e) => setNumQubits(Number(e.target.value))}
                 disabled={isRunning}
                 className="w-full bg-gray-700 rounded px-3 py-2 text-white disabled:opacity-50"
               >
-                <option value={2}>2 Qubits</option>
-                <option value={3}>3 Qubits</option>
-                <option value={4}>4 Qubits</option>
+                <option value={2}>2 Assets</option>
+                <option value={3}>3 Assets</option>
+                <option value={4}>4 Assets</option>
               </select>
             </div>
             <div>
@@ -469,25 +469,25 @@ const QuantumDiscoveryLab = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold mb-5">Quantum Circuit ({numQubits} Qubits)</h3>
+            <h3 className="text-xl font-semibold mb-5">Allocation Signals ({numQubits} Assets)</h3>
             <div className="space-y-5">
               {Array.from({ length: numQubits }).map((_, qubit) => (
                 <div key={qubit} className="flex items-center gap-3">
-                  <div className="w-12 text-gray-400 font-mono text-sm">|q{qubit}⟩</div>
+                  <div className="w-12 text-gray-400 font-mono text-sm">A{qubit}</div>
                   <div className="flex gap-2 flex-1">
-                    <QuantumGate label="H" active={isRunning && iteration % numQubits === qubit} />
+                    <QuantumGate label="Signal" active={isRunning && iteration % numQubits === qubit} />
                     <QuantumGate
-                      label="Ry"
+                      label="Weight"
                       active={isRunning && iteration % numQubits === qubit}
                       angle={qubit === 0 ? circuitParams.theta : circuitParams.phi}
                     />
                     <QuantumGate
-                      label="Rz"
+                      label="Risk"
                       active={isRunning && iteration % numQubits === qubit}
                       angle={circuitParams.lambda}
                     />
                     {qubit < numQubits - 1 && (
-                      <QuantumGate label="CX" active={isRunning && iteration % numQubits === qubit} />
+                      <QuantumGate label="Couple" active={isRunning && iteration % numQubits === qubit} />
                     )}
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center">
@@ -503,7 +503,7 @@ const QuantumDiscoveryLab = () => {
           </div>
 
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold mb-4">Fidelity Convergence (SPSA)</h3>
+            <h3 className="text-xl font-semibold mb-4">Risk Convergence (SPSA)</h3>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={fidelityData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -524,7 +524,7 @@ const QuantumDiscoveryLab = () => {
                   stroke="#3B82F6"
                   strokeWidth={2}
                   dot={false}
-                  name="Fidelity %"
+                  name="Risk Score %"
                 />
                 <Line
                   type="monotone"
@@ -542,7 +542,7 @@ const QuantumDiscoveryLab = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-xl font-semibold mb-4">Parameter Space Exploration (3D)</h3>
+            <h3 className="text-xl font-semibold mb-4">Portfolio State Space (3D)</h3>
             <div className="h-[300px]">
               <Plot
                 data={[
@@ -566,9 +566,9 @@ const QuantumDiscoveryLab = () => {
                   plot_bgcolor: "transparent",
                   margin: { l: 0, r: 0, t: 0, b: 0 },
                   scene: {
-                    xaxis: { title: "θ", color: "#9CA3AF" },
-                    yaxis: { title: "Energy", color: "#9CA3AF" },
-                    zaxis: { title: "Fidelity %", color: "#9CA3AF" },
+                    xaxis: { title: "Allocation (theta)", color: "#9CA3AF" },
+                    yaxis: { title: "Risk proxy", color: "#9CA3AF" },
+                    zaxis: { title: "Score %", color: "#9CA3AF" },
                     bgcolor: "rgba(0,0,0,0)",
                   },
                 }}
@@ -717,10 +717,10 @@ const QuantumDiscoveryLab = () => {
 
         <div className="mt-8 text-center space-y-1">
           <p className="text-gray-500 text-sm">
-            Autonomous loop: Propose → Execute → Measure → Learn → Optimize
+            Portfolio loop: Observe → Generate → Evaluate → Optimize → Deploy
           </p>
           <p className="text-gray-600 text-xs">
-            SPSA optimization | Qiskit-compatible backend | Diachronic memory | Bit-flip noise model
+            QUBO-style optimization | Risk metrics | Hybrid quantum-classical workflows
           </p>
           <p className="text-gray-700 text-xs mt-2">
             Based on: <code className="bg-gray-800 px-2 py-1 rounded">autonomous_quantum_lab.py</code>
