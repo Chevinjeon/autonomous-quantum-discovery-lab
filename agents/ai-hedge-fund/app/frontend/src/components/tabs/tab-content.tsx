@@ -1,7 +1,7 @@
+import { TerminalTab } from '@/components/panels/bottom/tabs';
 import { useTabsContext } from '@/contexts/tabs-context';
 import { cn } from '@/lib/utils';
 import { TabService } from '@/services/tab-service';
-import { FileText, FolderOpen } from 'lucide-react';
 import { useEffect } from 'react';
 
 interface TabContentProps {
@@ -41,40 +41,13 @@ export function TabContent({ className }: TabContentProps) {
 
   if (!activeTab) {
     return (
-      <div className={cn(
-        "h-full w-full flex items-center justify-center bg-background text-muted-foreground",
-        className
-      )}>
-        <div className="text-center space-y-4">
-          <FolderOpen size={48} className="mx-auto text-muted-foreground/50" />
-          <div>
-            <div className="text-xl font-medium mb-2">Welcome to the AI Hedge Fund 🍱</div>
-            <div className="text-sm max-w-md">
-              Build a flow from the left sidebar (⌘B) and watch the story unfold ✨ — crisp signals, calm pacing, and a little personality.
-            </div>
-          </div>
-          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70">
-            <FileText size={14} />
-            <span>Flows open in tabs. Dexter listens from the terminal 🧪.</span>
-          </div>
-          <div className="mx-auto mt-6 max-w-xl bento-card p-4 text-left">
-            <div className="text-sm font-semibold text-primary">Story Scroll</div>
-            <div className="mt-2 max-h-48 space-y-3 overflow-y-auto story-scroll">
-              <section className="story-panel">
-                <div className="text-sm">🌿 Chapter 1: Define your universe. A few tickers, a clear intent, a gentle start.</div>
-              </section>
-              <section className="story-panel">
-                <div className="text-sm">📊 Chapter 2: Analysts whisper. Signals appear like lanterns in the fog.</div>
-              </section>
-              <section className="story-panel">
-                <div className="text-sm">🧭 Chapter 3: Dexter researches out loud, and the terminal becomes a diary.</div>
-              </section>
-              <section className="story-panel">
-                <div className="text-sm">🏁 Chapter 4: Portfolio choices land softly — confident, not rushed.</div>
-              </section>
-            </div>
-          </div>
-        </div>
+      <div className={cn("h-full w-full bg-background", className)}>
+        <TerminalTab
+          className="h-full"
+          title="Dexter"
+          subtitle="Your AI assistant for deep financial research."
+          filterMode="dexter"
+        />
       </div>
     );
   }

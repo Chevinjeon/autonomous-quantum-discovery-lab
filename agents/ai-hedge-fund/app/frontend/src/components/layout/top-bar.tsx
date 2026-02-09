@@ -31,9 +31,9 @@ export function TopBar({
           <Sparkles size={14} />
         </span>
         <div className="hidden sm:block">
-          SynQubi ✨ Your trading story unfolds one signal at a time, with calm focus and tiny wins baked in.
+          SynQubi — Let the agents research, debate, and converge on a portfolio recommendation.
         </div>
-        <div className="sm:hidden">SynQubi ✨ Story mode on.</div>
+        <div className="sm:hidden">SynQubi</div>
       </div>
       {/* Left Sidebar Toggle */}
       <div className="flex items-center gap-0">
