@@ -1,6 +1,6 @@
 version: 1
 applications:
-  - appRoot: frontend
+  - appRoot: agents/ai-hedge-fund/app/frontend
     frontend:
       phases:
         preBuild:
@@ -8,7 +8,7 @@ applications:
             - npm install
         build:
           commands:
-            - npm run build
+            - npx vite build
       artifacts:
         baseDirectory: dist
         files:
@@ -16,3 +16,12 @@ applications:
       cache:
         paths:
           - node_modules/**/*
+    customHeaders:
+      - pattern: "**/*"
+        headers:
+          - key: Cache-Control
+            value: "no-cache"
+  customRules:
+    - source: "</^[^.]+$|\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json|webp)$)([^.]+$)/>"
+      target: /index.html
+      status: "200"
