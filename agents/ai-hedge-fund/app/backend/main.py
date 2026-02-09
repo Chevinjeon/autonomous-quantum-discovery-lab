@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import asyncio
+import os
 
 from app.backend.routes import api_router
 from app.backend.database.connection import engine
@@ -17,10 +18,18 @@ app = FastAPI(title="AI Hedge Fund API", description="Backend API for AI Hedge F
 # Initialize database tables (this is safe to run multiple times)
 Base.metadata.create_all(bind=engine)
 
-# Configure CORS
+# Configure CORS — allow Amplify frontend and local dev
+cors_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+# Add production frontend URL from environment if set
+if os.environ.get("FRONTEND_URL"):
+    cors_origins.append(os.environ["FRONTEND_URL"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Frontend URLs
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

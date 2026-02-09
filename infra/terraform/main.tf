@@ -66,6 +66,7 @@ resource "aws_apprunner_service" "backend" {
           AIF_DEFAULT_MODEL    = var.default_llm_model
           AIF_PRICE_SOURCE     = "yahoo"
           PYTHONPATH           = "/app"
+          FRONTEND_URL         = var.frontend_url
         }
 
         runtime_environment_secrets = {}
@@ -82,7 +83,7 @@ resource "aws_apprunner_service" "backend" {
 
   health_check_configuration {
     protocol            = "HTTP"
-    path                = "/ping"
+    path                = "/"
     interval            = 10
     timeout             = 5
     healthy_threshold   = 1

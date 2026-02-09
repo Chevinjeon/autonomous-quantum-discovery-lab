@@ -23,6 +23,10 @@ logs/
 data/
 *.log
 
+# Frontend (not needed in backend image)
+app/frontend/
+dexter/
+
 # OS specific
 .DS_Store
-Thumbs.db 
+Thumbs.db

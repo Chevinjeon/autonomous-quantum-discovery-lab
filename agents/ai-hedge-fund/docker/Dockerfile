@@ -18,5 +18,8 @@ RUN poetry config virtualenvs.create false \
 # Copy rest of the source code
 COPY . /app/
 
-# Default command (will be overridden by Docker Compose)
-CMD ["python", "src/main.py"] 
+# Expose port 8000 for FastAPI
+EXPOSE 8000
+
+# Run the FastAPI backend server
+CMD ["uvicorn", "app.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
