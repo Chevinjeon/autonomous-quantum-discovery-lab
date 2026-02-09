@@ -8,17 +8,12 @@ variable "project_name" {
   default = "synqubi"
 }
 
-variable "kinesis_stream_name" {
+variable "default_llm_provider" {
   type    = string
-  default = "synqubi-market-ticks"
+  default = "xAI"
 }
 
-variable "dynamodb_table_name" {
+variable "default_llm_model" {
   type    = string
-  default = "synqubi-market-latest"
-}
-
-variable "solver_desired_count" {
-  type    = number
-  default = 0
+  default = "grok-4-0709"
 }

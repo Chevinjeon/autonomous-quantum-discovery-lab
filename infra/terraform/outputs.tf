@@ -1,19 +1,7 @@
-output "kinesis_stream_name" {
-  value = aws_kinesis_stream.market_ticks.name
+output "backend_url" {
+  value = aws_apprunner_service.backend.service_url
 }
 
-output "dynamodb_table_name" {
-  value = aws_dynamodb_table.latest_market.name
-}
-
-output "solver_ecr_repository" {
-  value = aws_ecr_repository.solver_repo.repository_url
-}
-
-output "ecs_cluster_name" {
-  value = aws_ecs_cluster.solver_cluster.name
-}
-
-output "solver_alb_dns" {
-  value = aws_lb.solver_alb.dns_name
+output "ecr_repository" {
+  value = aws_ecr_repository.backend.repository_url
 }
