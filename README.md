@@ -50,9 +50,33 @@ QUBO-based allocation loop:
 python3 -m portfolio_lab.lab --assets 6 --target-assets 3 --steps 30
 ```
 
+Use Yahoo Finance tickers (live pulls):
+```bash
+python3 -m portfolio_lab.lab --tickers "AAPL,MSFT,NVDA,AMZN" --target-assets 2 --horizon 252
+```
+
+Requires:
+```bash
+pip install yfinance
+```
+
 Export results for Excel:
 ```bash
 python3 -m portfolio_lab.lab --assets 6 --target-assets 3 --steps 30 --export-csv portfolio_runs.csv
+```
+
+Use EDHEC hedge fund indices (real historical returns):
+```bash
+python3 -m portfolio_lab.edhec_lab --csv "/Users/chevinjeon/Downloads/archive/edhec-hedgefundindices.csv" --target-assets 4
+```
+
+Production-grade evaluation (train/test split + benchmark + costs):
+```bash
+python3 -m portfolio_lab.edhec_lab \
+  --csv "/Users/chevinjeon/Downloads/archive/edhec-hedgefundindices.csv" \
+  --target-assets 4 \
+  --train-ratio 0.7 \
+  --transaction-cost-bps 10
 ```
 
 ## AI stress tester (scenario lab)

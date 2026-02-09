@@ -39,7 +39,17 @@ def portfolio_returns(weights: np.ndarray, returns: np.ndarray) -> np.ndarray:
     weights: (num_assets,)
     returns: (T, num_assets)
     """
-    return returns @ weights
+    returns = np.asarray(returns, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    if not np.all(np.isfinite(returns)):
+        raise ValueError("Returns contain NaN/Inf values.")
+    if not np.all(np.isfinite(weights)):
+        raise ValueError("Weights contain NaN/Inf values.")
+    with np.errstate(all="ignore"):
+        result = returns @ weights
+    if not np.all(np.isfinite(result)):
+        raise ValueError("Numerical issue during portfolio return computation.")
+    return result
 
 
 def sharpe_ratio(r: np.ndarray, eps: float = 1e-8) -> float:

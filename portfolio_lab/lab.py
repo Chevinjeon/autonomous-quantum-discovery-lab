@@ -8,6 +8,7 @@ from typing import List
 import numpy as np
 
 from .market import SyntheticMarket, max_drawdown, portfolio_returns, sharpe_ratio, volatility
+from .yahoo_market import YahooMarket, YahooMarketConfig
 from .risk import value_at_risk, conditional_value_at_risk
 from .qubo import QuboProblem, build_qubo, solve_qubo
 
@@ -25,7 +26,7 @@ class PortfolioTrial:
 
 
 class PortfolioRiskLab:
-    def __init__(self, market: SyntheticMarket) -> None:
+    def __init__(self, market: SyntheticMarket | YahooMarket) -> None:
         self.market = market
         self.trials: List[PortfolioTrial] = []
 
@@ -106,9 +107,42 @@ def main() -> None:
     parser.add_argument("--penalty", type=float, default=10.0, help="Constraint penalty.")
     parser.add_argument("--seed", type=int, default=7, help="RNG seed.")
     parser.add_argument("--export-csv", default="", help="Export trials to CSV.")
+    parser.add_argument(
+        "--tickers",
+        default="",
+        help="Comma-separated Yahoo Finance tickers. If set, use live data.",
+    )
+    parser.add_argument("--yahoo-start", default="2024-01-01", help="Yahoo start date.")
+    parser.add_argument("--yahoo-end", default="", help="Yahoo end date.")
+    parser.add_argument(
+        "--yahoo-interval",
+        default="1d",
+        help="Yahoo interval (e.g., 1d, 1wk, 1mo).",
+    )
+    parser.add_argument(
+        "--yahoo-window",
+        default="latest",
+        choices=["latest", "random"],
+        help="Return window selection for Yahoo data.",
+    )
     args = parser.parse_args()
 
-    market = SyntheticMarket(num_assets=args.assets, seed=args.seed)
+    if args.tickers:
+        tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()]
+        if not tickers:
+            raise ValueError("No valid tickers provided.")
+        market = YahooMarket(
+            YahooMarketConfig(
+                tickers=tickers,
+                start=args.yahoo_start,
+                end=args.yahoo_end or None,
+                interval=args.yahoo_interval,
+                window=args.yahoo_window,
+                seed=args.seed,
+            )
+        )
+    else:
+        market = SyntheticMarket(num_assets=args.assets, seed=args.seed)
     lab = PortfolioRiskLab(market)
 
     for step in range(1, args.steps + 1):
