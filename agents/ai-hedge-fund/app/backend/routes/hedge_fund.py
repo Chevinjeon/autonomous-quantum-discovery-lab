@@ -121,13 +121,13 @@ async def run(request_data: HedgeFundRequest, request: Request, db: Session = De
                             pass
                         return
 
-                    # Either get a progress update or wait a bit
+                    # Either get a progress update or send a keep-alive
                     try:
-                        event = await asyncio.wait_for(progress_queue.get(), timeout=1.0)
+                        event = await asyncio.wait_for(progress_queue.get(), timeout=15.0)
                         yield event.to_sse()
                     except asyncio.TimeoutError:
-                        # Just continue the loop
-                        pass
+                        # Send SSE keep-alive comment to prevent proxy timeout
+                        yield ": keep-alive\n\n"
 
                 # Get the final result
                 try:
@@ -348,13 +348,13 @@ async def backtest(request_data: BacktestRequest, request: Request, db: Session 
                             pass
                         return
 
-                    # Either get a progress update or wait a bit
+                    # Either get a progress update or send a keep-alive
                     try:
-                        event = await asyncio.wait_for(progress_queue.get(), timeout=1.0)
+                        event = await asyncio.wait_for(progress_queue.get(), timeout=15.0)
                         yield event.to_sse()
                     except asyncio.TimeoutError:
-                        # Just continue the loop
-                        pass
+                        # Send SSE keep-alive comment to prevent proxy timeout
+                        yield ": keep-alive\n\n"
 
                 # Get the final result
                 try:
