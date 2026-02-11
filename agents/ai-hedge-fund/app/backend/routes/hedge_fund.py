@@ -165,8 +165,16 @@ async def run(request_data: HedgeFundRequest, request: Request, db: Session = De
                 if disconnect_task and not disconnect_task.done():
                     disconnect_task.cancel()
 
-        # Return a streaming response
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        # Return a streaming response with no-buffering headers
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
 
     except HTTPException as e:
         raise e
@@ -393,8 +401,16 @@ async def backtest(request_data: BacktestRequest, request: Request, db: Session 
                 if disconnect_task and not disconnect_task.done():
                     disconnect_task.cancel()
 
-        # Return a streaming response
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        # Return a streaming response with no-buffering headers
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
 
     except HTTPException as e:
         raise e

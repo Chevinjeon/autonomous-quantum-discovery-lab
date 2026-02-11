@@ -22,4 +22,4 @@ COPY . /app/
 EXPOSE 8000
 
 # Run the FastAPI backend server
-CMD ["uvicorn", "app.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "300"]
