@@ -65,7 +65,7 @@ async def run(request_data: HedgeFundRequest, request: Request, db: Session = De
         model_provider = ModelProvider.XAI
         request_data.model_provider = model_provider
         if not request_data.model_name:
-            request_data.model_name = "grok-4-0709"
+            request_data.model_name = "grok-3-fast"
 
         # Function to detect client disconnection
         async def wait_for_disconnect():
@@ -219,7 +219,7 @@ async def create_job(request_data: HedgeFundRequest, db: Session = Depends(get_d
         model_provider = ModelProvider.XAI
         request_data.model_provider = model_provider
         if not request_data.model_name:
-            request_data.model_name = "grok-4-0709"
+            request_data.model_name = "grok-3-fast"
 
         # Create job in the store
         job = job_store.create_job()

@@ -7,7 +7,7 @@ from src.llm.models import get_model, get_model_info
 from src.utils.progress import progress
 from src.graph.state import AgentState
 
-_DEFAULT_MODEL = os.getenv("AIF_DEFAULT_MODEL", "grok-4-0709")
+_DEFAULT_MODEL = os.getenv("AIF_DEFAULT_MODEL", "grok-3-fast")
 _DEFAULT_PROVIDER = os.getenv("AIF_DEFAULT_PROVIDER", "xAI")
 
 

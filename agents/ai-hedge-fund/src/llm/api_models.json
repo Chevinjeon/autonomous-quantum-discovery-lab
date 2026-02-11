@@ -5,6 +5,11 @@
     "provider": "xAI"
   },
   {
+    "display_name": "Grok 3 Fast",
+    "model_name": "grok-3-fast",
+    "provider": "xAI"
+  },
+  {
     "display_name": "GPT-5.2",
     "model_name": "gpt-5.2",
     "provider": "OpenAI"
