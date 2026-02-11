@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import asyncio
+import traceback
 
 from app.backend.database import get_db
 from app.backend.models.schemas import (
@@ -18,6 +19,7 @@ from app.backend.services.graph import create_graph, parse_hedge_fund_response, 
 from app.backend.services.portfolio import create_portfolio
 from app.backend.services.backtest_service import BacktestService
 from app.backend.services.api_key_service import ApiKeyService
+from app.backend.services.job_store import job_store, JobStatus
 from src.utils.progress import progress
 from src.utils.analysts import get_agents_list
 from src.utils.llm import call_llm
@@ -183,6 +185,137 @@ async def run(request_data: HedgeFundRequest, request: Request, db: Session = De
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred while processing the request: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Polling-based job endpoints (replaces SSE for App Runner compatibility)
+# ---------------------------------------------------------------------------
+
+@router.post(path="/jobs")
+async def create_job(request_data: HedgeFundRequest, db: Session = Depends(get_db)):
+    """Start a hedge fund analysis job and return the job ID immediately."""
+    try:
+        # Hydrate API keys from database if not provided
+        if not request_data.api_keys:
+            api_key_service = ApiKeyService(db)
+            request_data.api_keys = api_key_service.get_api_keys_dict()
+
+        # Create the portfolio
+        portfolio = create_portfolio(
+            request_data.initial_cash,
+            request_data.margin_requirement,
+            request_data.tickers,
+            request_data.portfolio_positions,
+        )
+
+        # Construct agent graph
+        graph = create_graph(
+            graph_nodes=request_data.graph_nodes,
+            graph_edges=request_data.graph_edges,
+        )
+        graph = graph.compile()
+
+        # Ensure request uses the correct model provider/name
+        model_provider = ModelProvider.XAI
+        request_data.model_provider = model_provider
+        if not request_data.model_name:
+            request_data.model_name = "grok-4-0709"
+
+        # Create job in the store
+        job = job_store.create_job()
+        job.status = JobStatus.RUNNING
+        job.add_event("start", {"message": "Job started"})
+
+        # Background coroutine that runs the graph and records events
+        async def run_job():
+            def progress_handler(agent_name, ticker, status, analysis, timestamp):
+                job.add_event("progress", {
+                    "agent": agent_name,
+                    "ticker": ticker,
+                    "status": status,
+                    "analysis": analysis,
+                    "timestamp": timestamp,
+                })
+
+            progress.register_handler(progress_handler)
+            try:
+                result = await run_graph_async(
+                    graph=graph,
+                    portfolio=portfolio,
+                    tickers=request_data.tickers,
+                    start_date=request_data.start_date,
+                    end_date=request_data.end_date,
+                    model_name=request_data.model_name,
+                    model_provider=model_provider,
+                    request=request_data,
+                )
+
+                if not result or not result.get("messages"):
+                    job.error = "Failed to generate hedge fund decisions"
+                    job.status = JobStatus.ERROR
+                    job.add_event("error", {"message": job.error})
+                    return
+
+                job.result = {
+                    "decisions": parse_hedge_fund_response(result["messages"][-1].content),
+                    "analyst_signals": result.get("data", {}).get("analyst_signals", {}),
+                    "current_prices": result.get("data", {}).get("current_prices", {}),
+                }
+                job.status = JobStatus.COMPLETE
+                job.add_event("complete", {"data": job.result})
+
+            except asyncio.CancelledError:
+                job.status = JobStatus.CANCELLED
+                job.add_event("error", {"message": "Job cancelled"})
+            except Exception as exc:
+                job.error = str(exc)
+                job.status = JobStatus.ERROR
+                job.add_event("error", {"message": str(exc)})
+                traceback.print_exc()
+            finally:
+                progress.unregister_handler(progress_handler)
+
+        # Launch the background task and store ref for cancellation
+        job.task = asyncio.create_task(run_job())
+
+        return {"job_id": job.job_id}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(path="/jobs/{job_id}")
+async def get_job_status(job_id: str, after: int = Query(default=-1)):
+    """Poll for job status and new events since cursor `after`."""
+    job = job_store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    events = job_store.get_events_after(job_id, after)
+
+    response = {
+        "job_id": job.job_id,
+        "status": job.status.value,
+        "events": [
+            {"index": e.index, "type": e.type, "data": e.data, "timestamp": e.timestamp}
+            for e in (events or [])
+        ],
+    }
+
+    if job.status == JobStatus.COMPLETE and job.result:
+        response["result"] = job.result
+    if job.status == JobStatus.ERROR and job.error:
+        response["error"] = job.error
+
+    return response
+
+
+@router.post(path="/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """Cancel a running job."""
+    if not job_store.cancel_job(job_id):
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"status": "cancelled"}
 
 
 @router.post(

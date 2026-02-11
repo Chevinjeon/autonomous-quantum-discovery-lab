@@ -97,14 +97,12 @@ export const api = {
   },
 
   /**
-   * Runs a hedge fund simulation with the given parameters and streams the results
-   * @param params The hedge fund request parameters
-   * @param nodeContext Node context for updating node states
-   * @param flowId The ID of the current flow
-   * @returns A function to abort the SSE connection
+   * Runs a hedge fund simulation using polling (App Runner compatible).
+   * Starts a background job, then polls for progress every 2.5s.
+   * @returns A function to abort/cancel the job
    */
   runHedgeFund: (
-    params: HedgeFundRequest, 
+    params: HedgeFundRequest,
     nodeContext: ReturnType<typeof useNodeContext>,
     flowId: string | null = null
   ): (() => void) => {
@@ -113,210 +111,183 @@ export const api = {
       params.tickers = (params.tickers as unknown as string).split(',').map(t => t.trim());
     }
 
-    // Helper function to get agent IDs from graph structure
     const getAgentIds = () => params.graph_nodes.map(node => node.id);
 
-    // Pass the unique node IDs directly to the backend
-    const backendParams = params;
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let jobId: string | null = null;
 
-    // For SSE connections with FastAPI, we need to use POST
-    // First, create the controller
-    const controller = new AbortController();
-    const { signal } = controller;
-
-    // Make a POST request with the JSON body
-    fetch(`${API_BASE_URL}/hedge-fund/run`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(backendParams),
-      signal,
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-            
-      // Process the response as a stream of SSE events
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('Failed to get response reader');
-      }
-      
-      const decoder = new TextDecoder();
-      let buffer = '';
-      
-      // Function to process the stream
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            
-            if (done) {
-              break;
+    const processEvent = (event: { type: string; data: any }) => {
+      switch (event.type) {
+        case 'start':
+          nodeContext.resetAllNodes(flowId);
+          break;
+        case 'progress':
+          if (event.data.agent) {
+            let nodeStatus: NodeStatus = 'IN_PROGRESS';
+            if (event.data.status === 'Done') {
+              nodeStatus = 'COMPLETE';
             }
-            
-            // Decode the chunk and add to buffer
-            const chunk = decoder.decode(value, { stream: true });
-            buffer += chunk;
-            
-            // Process any complete events in the buffer (separated by double newlines)
-            const events = buffer.split('\n\n');
-            buffer = events.pop() || ''; // Keep last partial event in buffer
-            
-            for (const eventText of events) {
-              if (!eventText.trim()) continue;
-                            
-              try {
-                // Parse the event type and data from the SSE format
-                const eventTypeMatch = eventText.match(/^event: (.+)$/m);
-                const dataMatch = eventText.match(/^data: (.+)$/m);
-                
-                if (eventTypeMatch && dataMatch) {
-                  const eventType = eventTypeMatch[1];
-                  const eventData = JSON.parse(dataMatch[1]);
-                  
-                  console.log(`Parsed ${eventType} event:`, eventData);
-                  
-                  // Process based on event type
-                  switch (eventType) {
-                    case 'start':
-                      // Reset all nodes at the start of a new run
-                      nodeContext.resetAllNodes(flowId);
-                      break;
-                    case 'progress':
-                      if (eventData.agent) {
-                        // Map the progress to a node status
-                        let nodeStatus: NodeStatus = 'IN_PROGRESS';
-                        if (eventData.status === 'Done') {
-                          nodeStatus = 'COMPLETE';
-                        }
-                        // Map the backend agent name to the unique node ID
-                        const baseAgentKey = eventData.agent.replace('_agent', '');
-                        
-                        // Find the unique node ID that corresponds to this base agent key
-                        const uniqueNodeId = getAgentIds().find(id => 
-                          extractBaseAgentKey(id) === baseAgentKey
-                        ) || baseAgentKey;
-                                                
-                        // Use the enhanced API to update both status and additional data
-                        nodeContext.updateAgentNode(flowId, uniqueNodeId, {
-                          status: nodeStatus,
-                          ticker: eventData.ticker,
-                          message: eventData.status,
-                          analysis: eventData.analysis,
-                          timestamp: eventData.timestamp
-                        });
-                      }
-                      break;
-                    case 'complete':
-                      // Store the complete event data in the node context
-                      if (eventData.data) {
-                        nodeContext.setOutputNodeData(flowId, eventData.data as OutputNodeData);
-                      }
-                      // Mark all agents as complete when the whole process is done
-                      nodeContext.updateAgentNodes(flowId, getAgentIds(), 'COMPLETE');
-                      // Also update the output node
-                      nodeContext.updateAgentNode(flowId, 'output', {
-                        status: 'COMPLETE',
-                        message: 'Analysis complete'
-                      });
+            const baseAgentKey = event.data.agent.replace('_agent', '');
+            const uniqueNodeId = getAgentIds().find(id =>
+              extractBaseAgentKey(id) === baseAgentKey
+            ) || baseAgentKey;
 
-                      // Update flow connection state to completed
-                      if (flowId) {
-                        flowConnectionManager.setConnection(flowId, {
-                          state: 'completed',
-                          abortController: null,
-                        });
+            nodeContext.updateAgentNode(flowId, uniqueNodeId, {
+              status: nodeStatus,
+              ticker: event.data.ticker,
+              message: event.data.status,
+              analysis: event.data.analysis,
+              timestamp: event.data.timestamp,
+            });
+          }
+          break;
+        case 'complete':
+          if (event.data.data) {
+            nodeContext.setOutputNodeData(flowId, event.data.data as OutputNodeData);
+          }
+          nodeContext.updateAgentNodes(flowId, getAgentIds(), 'COMPLETE');
+          nodeContext.updateAgentNode(flowId, 'output', {
+            status: 'COMPLETE',
+            message: 'Analysis complete',
+          });
+          if (flowId) {
+            flowConnectionManager.setConnection(flowId, {
+              state: 'completed',
+              abortController: null,
+            });
+            setTimeout(() => {
+              const cur = flowConnectionManager.getConnection(flowId);
+              if (cur.state === 'completed') {
+                flowConnectionManager.setConnection(flowId, { state: 'idle' });
+              }
+            }, 30000);
+          }
+          break;
+        case 'error':
+          nodeContext.updateAgentNodes(flowId, getAgentIds(), 'ERROR');
+          if (flowId) {
+            flowConnectionManager.setConnection(flowId, {
+              state: 'error',
+              error: event.data.message || 'Unknown error occurred',
+              abortController: null,
+            });
+          }
+          break;
+      }
+    };
 
-                        // Optional: Auto-cleanup completed connections after a delay
-                        setTimeout(() => {
-                          const currentConnection = flowConnectionManager.getConnection(flowId);
-                          if (currentConnection.state === 'completed') {
-                            flowConnectionManager.setConnection(flowId, {
-                              state: 'idle',
-                            });
-                          }
-                        }, 30000); // 30 seconds
-                      }
-                      break;
-                    case 'error':
-                      // Mark all agents as error when there's an error  
-                      nodeContext.updateAgentNodes(flowId, getAgentIds(), 'ERROR');
-                      
-                      // Update flow connection state to error
-                      if (flowId) {
-                        flowConnectionManager.setConnection(flowId, {
-                          state: 'error',
-                          error: eventData.message || 'Unknown error occurred',
-                          abortController: null,
-                        });
-                      }
-                      break;
-                    default:
-                      console.warn('Unknown event type:', eventType);
-                  }
+    // Start the job, then poll
+    (async () => {
+      try {
+        // 1. Start the job
+        const startRes = await fetch(`${API_BASE_URL}/hedge-fund/jobs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+        });
+        if (!startRes.ok) {
+          throw new Error(`Failed to start job: ${startRes.status}`);
+        }
+        const { job_id } = await startRes.json();
+        jobId = job_id;
+        console.log('Job started:', jobId);
+
+        if (cancelled) {
+          // User cancelled before we even got the job ID
+          fetch(`${API_BASE_URL}/hedge-fund/jobs/${jobId}/cancel`, { method: 'POST' }).catch(() => {});
+          return;
+        }
+
+        // 2. Poll loop
+        let cursor = -1;
+        const poll = async () => {
+          if (cancelled) return;
+          try {
+            const res = await fetch(
+              `${API_BASE_URL}/hedge-fund/jobs/${jobId}?after=${cursor}`
+            );
+            if (!res.ok) {
+              throw new Error(`Poll failed: ${res.status}`);
+            }
+            const data = await res.json();
+
+            // Process new events
+            for (const evt of data.events) {
+              processEvent(evt);
+              if (evt.index > cursor) cursor = evt.index;
+            }
+
+            // Check terminal states
+            const terminal = ['complete', 'error', 'cancelled'];
+            if (terminal.includes(data.status)) {
+              // If complete with result but no complete event yet, handle it
+              if (data.status === 'complete' && data.result) {
+                // The complete event should have already been processed above,
+                // but ensure output data is set
+                const hasCompleteEvent = data.events.some(
+                  (e: any) => e.type === 'complete'
+                );
+                if (!hasCompleteEvent) {
+                  processEvent({ type: 'complete', data: { data: data.result } });
                 }
-              } catch (err) {
-                console.error('Error parsing SSE event:', err, 'Raw event:', eventText);
+              }
+              if (data.status === 'error' && data.error) {
+                const hasErrorEvent = data.events.some(
+                  (e: any) => e.type === 'error'
+                );
+                if (!hasErrorEvent) {
+                  processEvent({ type: 'error', data: { message: data.error } });
+                }
+              }
+              console.log('Job finished with status:', data.status);
+              return; // Stop polling
+            }
+
+            // Schedule next poll
+            if (!cancelled) {
+              pollTimer = setTimeout(poll, 2500);
+            }
+          } catch (err: any) {
+            if (!cancelled) {
+              console.error('Polling error:', err);
+              nodeContext.updateAgentNodes(flowId, getAgentIds(), 'ERROR');
+              if (flowId) {
+                flowConnectionManager.setConnection(flowId, {
+                  state: 'error',
+                  error: err.message || 'Polling error',
+                  abortController: null,
+                });
               }
             }
           }
-          
-          // After the stream has finished, check if we are still in a connected state.
-          // This can happen if the backend closes the connection without sending a 'complete' event.
+        };
+
+        poll();
+      } catch (error: any) {
+        if (!cancelled) {
+          console.error('Job start error:', error);
+          nodeContext.updateAgentNodes(flowId, getAgentIds(), 'ERROR');
           if (flowId) {
-            const currentConnection = flowConnectionManager.getConnection(flowId);
-            if (currentConnection.state === 'connected') {
-              flowConnectionManager.setConnection(flowId, {
-                state: 'completed',
-                abortController: null,
-              });
-            }
+            flowConnectionManager.setConnection(flowId, {
+              state: 'error',
+              error: error.message || 'Connection failed',
+              abortController: null,
+            });
           }
-        } catch (error: any) { // Type assertion for error
-          if (error.name !== 'AbortError') {
-            console.error('Error reading SSE stream:', error);
-            // Mark all agents as error when there's a connection error
-            nodeContext.updateAgentNodes(flowId, getAgentIds(), 'ERROR');
-            
-            // Update flow connection state to error
-            if (flowId) {
-              flowConnectionManager.setConnection(flowId, {
-                state: 'error',
-                error: error.message || 'Connection error',
-                abortController: null,
-              });
-            }
-          }
-        }
-      };
-      
-      // Start processing the stream
-      processStream();
-    })
-    .catch((error: any) => { // Type assertion for error
-      if (error.name !== 'AbortError') {
-        console.error('SSE connection error:', error);
-        // Mark all agents as error when there's a connection error
-        nodeContext.updateAgentNodes(flowId, getAgentIds(), 'ERROR');
-        
-        // Update flow connection state to error
-        if (flowId) {
-          flowConnectionManager.setConnection(flowId, {
-            state: 'error',
-            error: error.message || 'Connection failed',
-            abortController: null,
-          });
         }
       }
-    });
+    })();
 
-    // Return abort function
+    // Return abort/cancel function
     return () => {
-      controller.abort();
-      // Update connection state when manually aborted
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+      if (jobId) {
+        fetch(`${API_BASE_URL}/hedge-fund/jobs/${jobId}/cancel`, {
+          method: 'POST',
+        }).catch(() => {});
+      }
       if (flowId) {
         flowConnectionManager.setConnection(flowId, {
           state: 'idle',
