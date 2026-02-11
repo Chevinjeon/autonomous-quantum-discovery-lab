@@ -245,25 +245,28 @@ def _maybe_qubo_decisions(
     if not enabled:
         return None
 
-    expected = _aggregate_expected_returns(signals_by_ticker)
-    mean = np.array([expected.get(t, 0.0) for t in tickers], dtype=float)
-    cov = _build_covariance(tickers, risk_by_ticker)
+    try:
+        expected = _aggregate_expected_returns(signals_by_ticker)
+        mean = np.array([expected.get(t, 0.0) for t in tickers], dtype=float)
+        cov = _build_covariance(tickers, risk_by_ticker)
 
-    target_env = os.getenv("AIF_QUBO_TARGET", "").strip()
-    target_assets = int(target_env) if target_env.isdigit() else None
-    if target_assets is None:
-        target_assets = max(1, min(len(tickers), len(tickers) // 3 or 1))
+        target_env = os.getenv("AIF_QUBO_TARGET", "").strip()
+        target_assets = int(target_env) if target_env.isdigit() else None
+        if target_assets is None:
+            target_assets = max(1, min(len(tickers), len(tickers) // 3 or 1))
 
-    risk_aversion = float(os.getenv("AIF_QUBO_RISK_AVERSION", "1.0"))
-    penalty = float(os.getenv("AIF_QUBO_PENALTY", "10.0"))
+        risk_aversion = float(os.getenv("AIF_QUBO_RISK_AVERSION", "1.0"))
+        penalty = float(os.getenv("AIF_QUBO_PENALTY", "10.0"))
 
-    result = solve_portfolio_qubo(
-        mean=mean,
-        cov=cov,
-        target_assets=target_assets,
-        risk_aversion=risk_aversion,
-        penalty=penalty,
-    )
+        result = solve_portfolio_qubo(
+            mean=mean,
+            cov=cov,
+            target_assets=target_assets,
+            risk_aversion=risk_aversion,
+            penalty=penalty,
+        )
+    except (ImportError, Exception):
+        return None
 
     selected = {tickers[i] for i in result.selected if i < len(tickers)}
     state["data"]["qubo_selection"] = sorted(selected)
