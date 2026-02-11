@@ -1,10 +1,14 @@
 """Helper functions for LLM"""
 
 import json
+import os
 from pydantic import BaseModel
 from src.llm.models import get_model, get_model_info
 from src.utils.progress import progress
 from src.graph.state import AgentState
+
+_DEFAULT_MODEL = os.getenv("AIF_DEFAULT_MODEL", "grok-4-0709")
+_DEFAULT_PROVIDER = os.getenv("AIF_DEFAULT_PROVIDER", "xAI")
 
 
 def call_llm(
@@ -35,8 +39,8 @@ def call_llm(
         model_name, model_provider = get_agent_model_config(state, agent_name)
     else:
         # Use system defaults when no state or agent_name is provided
-        model_name = "gpt-4.1"
-        model_provider = "OPENAI"
+        model_name = _DEFAULT_MODEL
+        model_provider = _DEFAULT_PROVIDER
 
     # Extract API keys from state if available
     api_keys = None
@@ -134,11 +138,24 @@ def get_agent_model_config(state, agent_name):
         model_name, model_provider = request.get_agent_model_config(agent_name)
         # Ensure we have valid values
         if model_name and model_provider:
-            return model_name, model_provider.value if hasattr(model_provider, 'value') else str(model_provider)
+            provider_str = model_provider.value if hasattr(model_provider, 'value') else str(model_provider)
+            # Verify we have the API key for this provider, otherwise fall back to default
+            api_keys = getattr(request, 'api_keys', None) or {}
+            provider_key_map = {
+                "OpenAI": "OPENAI_API_KEY", "Groq": "GROQ_API_KEY",
+                "Anthropic": "ANTHROPIC_API_KEY", "DeepSeek": "DEEPSEEK_API_KEY",
+                "Google": "GOOGLE_API_KEY", "xAI": "XAI_API_KEY",
+            }
+            needed_key = provider_key_map.get(provider_str)
+            if needed_key and not api_keys.get(needed_key) and not os.getenv(needed_key):
+                # Provider API key not available, fall through to defaults
+                pass
+            else:
+                return model_name, provider_str
     
     # Fall back to global configuration (system defaults)
-    model_name = state.get("metadata", {}).get("model_name") or "gpt-4.1"
-    model_provider = state.get("metadata", {}).get("model_provider") or "OPENAI"
+    model_name = state.get("metadata", {}).get("model_name") or _DEFAULT_MODEL
+    model_provider = state.get("metadata", {}).get("model_provider") or _DEFAULT_PROVIDER
     
     # Convert enum to string if necessary
     if hasattr(model_provider, 'value'):
