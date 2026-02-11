@@ -59,8 +59,11 @@ async def run(request_data: HedgeFundRequest, request: Request, db: Session = De
         # Log a test progress update for debugging
         progress.update_status("system", None, "Preparing hedge fund run")
 
-        # Convert model_provider to string if it's an enum
+        # Ensure request uses the correct model provider/name
         model_provider = ModelProvider.XAI
+        request_data.model_provider = model_provider
+        if not request_data.model_name:
+            request_data.model_name = "grok-4-0709"
 
         # Function to detect client disconnection
         async def wait_for_disconnect():
