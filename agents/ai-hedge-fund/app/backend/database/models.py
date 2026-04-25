@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, JSON, ForeignKey, Float
 from sqlalchemy.sql import func
 from .connection import Base
 
@@ -112,4 +112,38 @@ class ApiKey(Base):
     last_used = Column(DateTime(timezone=True), nullable=True)  # Track usage
 
 
- 
+# ── Conversations / Sentiment Analysis ──────────────────────────────────────
+
+class Thread(Base):
+    """Tracks the processing status of a conversation thread."""
+    __tablename__ = "threads"
+
+    thread_id = Column(String, primary_key=True, index=True)
+    status = Column(String(20), nullable=False, default="queued")  # queued/processing/done/failed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Tweet(Base):
+    """Individual tweet/message belonging to a thread."""
+    __tablename__ = "tweets"
+
+    tweet_id = Column(String, primary_key=True, index=True)
+    thread_id = Column(String, ForeignKey("threads.thread_id"), nullable=False, index=True)
+    user_id = Column(String, nullable=True)
+    text = Column(Text, nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Analysis(Base):
+    """Grok-generated sentiment and topic analysis for a thread."""
+    __tablename__ = "analysis"
+
+    id = Column(Integer, primary_key=True, index=True)
+    thread_id = Column(String, ForeignKey("threads.thread_id"), nullable=False, index=True, unique=True)
+    sentiment_score = Column(Float, nullable=True)   # -1.0 to 1.0
+    clusters = Column(JSON, nullable=True)            # list[str]
+    confidence = Column(Float, nullable=True)         # 0.0 to 1.0
+    reasoning = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

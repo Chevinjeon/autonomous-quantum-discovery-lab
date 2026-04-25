@@ -8,6 +8,7 @@ from app.backend.routes import api_router
 from app.backend.database.connection import engine
 from app.backend.database.models import Base
 from app.backend.services.ollama_service import ollama_service
+from app.backend.routes.conversations import start_conversation_worker
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,7 +41,9 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def startup_event():
-    """Startup event to check Ollama availability."""
+    """Startup event to check Ollama availability and start background workers."""
+    asyncio.create_task(start_conversation_worker())
+
     try:
         logger.info("Checking Ollama availability...")
         status = await ollama_service.check_ollama_status()
