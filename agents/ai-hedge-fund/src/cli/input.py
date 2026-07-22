@@ -221,6 +221,7 @@ class CLIInputs:
     margin_requirement: float
     show_reasoning: bool = False
     show_agent_graph: bool = False
+    execute: bool = False
     raw_args: Optional[argparse.Namespace] = None
 
 
@@ -231,6 +232,7 @@ def parse_cli_inputs(
     default_months_back: int | None,
     include_graph_flag: bool = False,
     include_reasoning_flag: bool = False,
+    include_execute_flag: bool = False,
 ) -> CLIInputs:
     parser = argparse.ArgumentParser(description=description)
 
@@ -259,6 +261,13 @@ def parse_cli_inputs(
         parser.add_argument("--show-reasoning", action="store_true", help="Show reasoning from each agent")
     if include_graph_flag:
         parser.add_argument("--show-agent-graph", action="store_true", help="Show the agent graph")
+    if include_execute_flag:
+        parser.add_argument(
+            "--execute",
+            action="store_true",
+            help="Submit real orders to your Alpaca PAPER trading account based on the agents' decisions "
+            "(requires ALPACA_API_KEY/ALPACA_SECRET_KEY). Default is a dry run that only prints decisions.",
+        )
 
     args = parser.parse_args()
 
@@ -282,6 +291,7 @@ def parse_cli_inputs(
         margin_requirement=getattr(args, "margin_requirement", 0.0),
         show_reasoning=getattr(args, "show_reasoning", False),
         show_agent_graph=getattr(args, "show_agent_graph", False),
+        execute=getattr(args, "execute", False),
         raw_args=args,
     )
 

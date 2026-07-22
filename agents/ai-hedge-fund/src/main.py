@@ -16,6 +16,8 @@ from src.utils.visualize import save_graph_as_png
 from src.cli.input import (
     parse_cli_inputs,
 )
+from src.tools.alpaca_broker import AlpacaTradeExecutor, get_account_state
+from src.tools.api import get_prices
 
 import argparse
 from datetime import datetime
@@ -140,34 +142,40 @@ if __name__ == "__main__":
         default_months_back=None,
         include_graph_flag=True,
         include_reasoning_flag=True,
+        include_execute_flag=True,
     )
 
     tickers = inputs.tickers
     selected_analysts = inputs.selected_analysts
 
-    # Construct portfolio here
-    portfolio = {
-        "cash": inputs.initial_cash,
-        "margin_requirement": inputs.margin_requirement,
-        "margin_used": 0.0,
-        "positions": {
-            ticker: {
-                "long": 0,
-                "short": 0,
-                "long_cost_basis": 0.0,
-                "short_cost_basis": 0.0,
-                "short_margin_used": 0.0,
-            }
-            for ticker in tickers
-        },
-        "realized_gains": {
-            ticker: {
-                "long": 0.0,
-                "short": 0.0,
-            }
-            for ticker in tickers
-        },
-    }
+    if inputs.execute:
+        print(f"{Fore.YELLOW}{Style.BRIGHT}--execute is set: decisions below will be submitted as real orders "
+              f"to your Alpaca PAPER trading account.{Style.RESET_ALL}\n")
+        portfolio = get_account_state(tickers)
+    else:
+        # Construct a synthetic portfolio for a dry run (no orders placed)
+        portfolio = {
+            "cash": inputs.initial_cash,
+            "margin_requirement": inputs.margin_requirement,
+            "margin_used": 0.0,
+            "positions": {
+                ticker: {
+                    "long": 0,
+                    "short": 0,
+                    "long_cost_basis": 0.0,
+                    "short_cost_basis": 0.0,
+                    "short_margin_used": 0.0,
+                }
+                for ticker in tickers
+            },
+            "realized_gains": {
+                ticker: {
+                    "long": 0.0,
+                    "short": 0.0,
+                }
+                for ticker in tickers
+            },
+        }
 
     result = run_hedge_fund(
         tickers=tickers,
@@ -180,3 +188,16 @@ if __name__ == "__main__":
         model_provider=inputs.model_provider,
     )
     print_trading_output(result)
+
+    if inputs.execute:
+        executor = AlpacaTradeExecutor()
+        for ticker, decision in (result["decisions"] or {}).items():
+            action = decision.get("action")
+            quantity = decision.get("quantity", 0)
+            if action == "hold" or not quantity:
+                continue
+            prices = get_prices(ticker, inputs.start_date, inputs.end_date)
+            if not prices:
+                print(f"Skipping {ticker}: no price data available to confirm order.")
+                continue
+            executor.execute_trade(ticker, action, quantity, prices[-1].close, portfolio)
