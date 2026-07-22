@@ -171,7 +171,7 @@ def get_financial_metrics(
     """Fetch financial metrics from cache or API."""
     # Create a cache key that includes all parameters to ensure exact matches
     cache_key = f"{ticker}_{period}_{end_date}_{limit}"
-    
+
     # Check cache first - simple exact match
     if cached_data := _cache.get_financial_metrics(cache_key):
         return [FinancialMetrics(**metric) for metric in cached_data]
@@ -179,6 +179,16 @@ def get_financial_metrics(
     # If not in cache, fetch from API
     headers = {}
     financial_api_key = api_key or os.environ.get("FINANCIAL_DATASETS_API_KEY")
+    use_sec_edgar = os.environ.get("AIF_USE_SEC_EDGAR", "").strip().lower() in {"1", "true", "yes"}
+
+    if use_sec_edgar or not financial_api_key:
+        from src.tools.sec_edgar import build_financial_metrics
+
+        metrics = build_financial_metrics(ticker, end_date, period, limit)
+        if metrics:
+            _cache.set_financial_metrics(cache_key, [m.model_dump() for m in metrics])
+        return metrics
+
     if financial_api_key:
         headers["X-API-KEY"] = financial_api_key
 
@@ -214,6 +224,13 @@ def search_line_items(
     # If not in cache or insufficient data, fetch from API
     headers = {}
     financial_api_key = api_key or os.environ.get("FINANCIAL_DATASETS_API_KEY")
+    use_sec_edgar = os.environ.get("AIF_USE_SEC_EDGAR", "").strip().lower() in {"1", "true", "yes"}
+
+    if use_sec_edgar or not financial_api_key:
+        from src.tools.sec_edgar import build_line_items
+
+        return build_line_items(ticker, line_items, end_date, period, limit)
+
     if financial_api_key:
         headers["X-API-KEY"] = financial_api_key
 
@@ -379,11 +396,18 @@ def get_market_cap(
     api_key: str = None,
 ) -> float | None:
     """Fetch market cap from the API."""
+    financial_api_key = api_key or os.environ.get("FINANCIAL_DATASETS_API_KEY")
+    use_sec_edgar = os.environ.get("AIF_USE_SEC_EDGAR", "").strip().lower() in {"1", "true", "yes"}
+
+    if use_sec_edgar or not financial_api_key:
+        from src.tools.sec_edgar import build_market_cap
+
+        return build_market_cap(ticker, end_date)
+
     # Check if end_date is today
     if end_date == datetime.datetime.now().strftime("%Y-%m-%d"):
         # Get the market cap from company facts API
         headers = {}
-        financial_api_key = api_key or os.environ.get("FINANCIAL_DATASETS_API_KEY")
         if financial_api_key:
             headers["X-API-KEY"] = financial_api_key
 
