@@ -151,7 +151,12 @@ def get_model(model_name: str, model_provider: ModelProvider, api_keys: dict = N
             # Print error to console
             print(f"API Key Error: Please make sure OPENAI_API_KEY is set in your .env file or provided via API keys.")
             raise ValueError("OpenAI API key not found.  Please make sure OPENAI_API_KEY is set in your .env file or provided via API keys.")
-        return ChatOpenAI(model=model_name, api_key=api_key, base_url=base_url)
+        # Explicit timeout: without one, a stalled connection can block on a raw
+        # socket read indefinitely (confirmed live via py-spy during a backtest -
+        # stuck in ssl.py recv() waiting on OpenAI response headers, no timeout
+        # to break out of it). max_retries=2 keeps langchain's own retry wrapper
+        # from compounding multiple full-length hangs back to back.
+        return ChatOpenAI(model=model_name, api_key=api_key, base_url=base_url, timeout=60, max_retries=2)
     elif model_provider == ModelProvider.ANTHROPIC:
         api_key = (api_keys or {}).get("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
@@ -193,6 +198,8 @@ def get_model(model_name: str, model_provider: ModelProvider, api_keys: dict = N
             model=model_name,
             openai_api_key=api_key,
             openai_api_base="https://openrouter.ai/api/v1",
+            timeout=60,
+            max_retries=2,
             model_kwargs={
                 "extra_headers": {
                     "HTTP-Referer": site_url,
