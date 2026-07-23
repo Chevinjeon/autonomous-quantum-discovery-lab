@@ -6,11 +6,15 @@ as new tests/backtests/changes happen — don't rely on chat history to reconstr
 
 **Status as of 2026-07-23: NOT ready for real money. Paper trading only. Fixed three real bugs
 tonight (QUBO could never sell; the whipsaw that exposed; an unbounded OpenAI client hang) and
-switched to a more reliable price data source (Alpaca over yfinance). The best complete result so
-far (Sharpe 0.81, still underperforms SPY by ~2.9 points) is the 4th consecutive run against the
+switched to a more reliable price data source (Alpaca over yfinance). The best complete QUBO result
+so far (Sharpe 0.81, still underperforms SPY by ~2.9 points) is the 4th consecutive run against the
 identical Jan–Jul 2026 window — genuinely improved each time, but still not validated against an
-untouched period. Do not read this as "fixed and ready" — read it as "meaningfully better, still
-unproven."**
+untouched period. Separately tested a classic momentum/trend-following factor (EMA crossover) as an
+independent, non-LLM baseline with a real train/validation split — it failed its out-of-sample test
+outright (negative Sharpe), and its parameter ranking didn't even hold between the training year and
+the validation window, real evidence against a robust momentum effect in this specific setup. Net
+read: neither approach currently beats a passive index fund. Do not read this as "fixed and ready"
+— read it as "meaningfully better, still unproven, and one clean alternative test came back negative."**
 
 ## What's been built
 
@@ -27,6 +31,12 @@ unproven."**
   news/sentiment (`get_company_news`) — SEC EDGAR has no free general-news equivalent. Agents
   that lean on these (`sentiment.py`, `news_sentiment.py`, parts of `phil_fisher.py`,
   `stanley_druckenmiller.py`, `growth_agent.py`) remain data-limited.
+- **Momentum/trend-following factor strategy** (`src/strategies/momentum.py`) — a standalone,
+  non-LLM baseline: EMA(short) − EMA(long) as a fraction of price, normalized by rolling 63-day
+  realized volatility, clipped to [-1, 1] (methodology from Rohrbach et al.). Long-only, reuses
+  the existing `Portfolio`/`TradeExecutor`/`PerformanceMetricsCalculator`/`BenchmarkCalculator`
+  scaffolding from `src/backtesting/`. Makes zero LLM calls — fast and free to iterate. Tested with
+  a real train/validation split (see below); the result was negative (see status line above).
 
 ## What's been tested so far
 
@@ -40,6 +50,8 @@ unproven."**
 | 2026-07-22 | Same 5-ticker/6-month backtest, re-run after the sell-fix (below) — **valid, completed** | Same setup, sell logic added to `_maybe_qubo_decisions` (see fix below), no hysteresis yet | **Return +1.24% (worse), Sharpe -0.10 (negative), max drawdown -3.84% (much better).** MSFT/AAPL/GOOGL now correctly sold, but revealed a second bug: `target_assets = len(tickers)//3` collapsed to 1 slot for 5 tickers, causing daily whipsaw (AAPL 30 buys/19 sells in 102 days, MSFT 24/21, GOOGL 16/12). NVDA — the best performer, +13.21% buy-and-hold — was bought only once, on the last day of the backtest. Drawdown improved a lot (no more riding a loser down), but return/Sharpe got worse from the churn. |
 | 2026-07-23 | Same backtest a third time, after target_assets resize (ceil(n/2)) + exit hysteresis (`AIF_QUBO_EXIT_STREAK=3`) — **partial, 91/126 trading days (crashed on a Yahoo Finance outage, not our code — DNS timeouts on yfinance calls, see limitation #9)** | Same setup, both fixes from this session's plan applied | **Through 2026-07-03: return +5.21% vs partial-window benchmark +8.67%. Sharpe 0.46, Sortino 0.69, max drawdown -13.50%.** Turnover dropped sharply vs the no-hysteresis run: total sells across all 5 tickers fell from 59 to 16; AAPL held continuously for all 91 days with zero sells (vs 19 sells previously). Best Sharpe/return of the three real runs, though still underperforming the benchmark and drawdown is back up (less whipsaw meant fewer forced exits during the same drawdown period). **Caveat, per methodology reminder from the user**: this is the 3rd consecutive iteration tuned against the exact same Jan–Jul 2026 window — discount this result accordingly and treat a genuinely new, untouched period as the real test, not another tweak-and-rerun on this one (see limitation #10). |
 | 2026-07-23 | 4th run, same window, after switching price data to Alpaca (limitation #9) and fixing an OpenAI client hang (limitation #11) — **valid, fully completed, zero errors** | Same setup (5 tickers, Buffett+Lynch+technical_analyst, OpenAI gpt-4.1-mini, $100k), full 2026-01-22 to 2026-07-23 window, no logic changes from the 3rd run | **Return +5.60% vs SPY benchmark +8.46%. Sharpe 0.81, Sortino 1.26, max drawdown -13.07%.** Best Sharpe/Sortino of every run so far. Turnover: 56 buys / 14 sells total (vs 137 actions in the pre-hysteresis run) — AAPL held 98% of days (+31.21% buy-and-hold, mostly captured), MSFT held 65% of days (-13.45% buy-and-hold this window — a genuine loser, partially avoided by trading around it rather than pure buy-and-hold), NVDA still underexposed at only 20% of days despite being the second-best performer (+14.73% buy-and-hold) — the entry side is still slower to react than the exit side. **Smallest underperformance gap yet (-2.86pts vs -5.64, -7.94, -3.46 in prior runs) — a consistent, believable improvement trend across all 4 iterations, not a fluke, but still not a beat, and still the same test window every time (limitation #10 fully applies).** |
+| 2026-07-23 | Momentum factor — training grid search (parameter selection, not the real test) | Same 5 tickers, EMA crossover pairs (8,24)/(16,48)/(32,98) from Rohrbach et al., $100k, **training window 2024-01-01 to 2024-12-31** (disjoint from all QUBO testing) | Return/Sharpe improved monotonically with longer windows: (8,24) +9.08%/Sharpe 0.33; (16,48) +15.23%/Sharpe 0.62; (32,98) +20.21%/Sharpe 0.83 (SPY that year: +24.46%). **Caveat**: this is a monotonic trend across only 3 discrete points, not a stable plateau — can't tell if performance keeps climbing past (32,98) or if that's a real peak. Picked (32,98) as it wins on every metric (Sharpe, Sortino, return), frozen before touching the validation window. |
+| 2026-07-23 | Momentum factor — frozen validation test (the real, honest out-of-sample test) | (32,98) frozen from training, **validation window 2026-01-22 to 2026-07-22** — the exact same window used for every QUBO run above | **Return +1.46% vs SPY +8.59%. Sharpe -0.03 (negative), Sortino -0.04 (negative), max drawdown -10.51%.** Failed outright — worse than every QUBO iteration tonight. For context (not part of the frozen test), the other two pairs on this same window: (8,24) +3.25%/Sharpe 0.28, (16,48) -3.35%/Sharpe -0.98 — **the training-set ranking didn't even hold** ((32,98) won training, (8,24) has the best Sharpe here). That's a real, honest signal that whatever "edge" the training year showed was likely noise specific to that year's trend character, not a robust momentum effect for this 5-ticker set. **This is the one genuinely clean out-of-sample result of the night** (parameters frozen before seeing this window) — and it's negative. Doesn't mean momentum categorically doesn't work here, just that this simple long-only EMA-crossover form, on these 5 tickers, over this window, doesn't. |
 
 ## Known limitations / open risks
 
@@ -105,6 +117,14 @@ unproven."**
     OpenRouter uses the same client class and has the identical failure mode). **Not yet applied**
     to the other provider branches (Groq, Anthropic, Google, DeepSeek, xAI, GigaChat, Azure) — same
     class of bug is plausible there too, just unconfirmed, since none have hung yet.
+12. **Momentum factor tested independently, failed its out-of-sample test.** A classic long-only
+    EMA-crossover momentum strategy (`src/strategies/momentum.py`, no LLM/QUBO involved at all) was
+    trained on 2024 data (picking among 3 published parameter pairs) and tested once, frozen, on the
+    same Jan–Jul 2026 window used for every QUBO run — this is the one genuinely clean out-of-sample
+    result of the night, and it came back negative (Sharpe -0.03, underperformed SPY by ~7pts). The
+    training-window parameter ranking didn't even hold on the validation window, suggesting the
+    training-year "edge" was period-specific noise. Doesn't rule out momentum generally, just this
+    simple form on this ticker set/window.
 
 ## Checklist before considering real money
 
@@ -117,8 +137,10 @@ Do not move to live trading until these are addressed:
       spanning up/down regimes), and — most importantly — a result that actually beats the
       benchmark
 - [ ] Strategy demonstrates it beats a passive index benchmark (SPY) after costs, on an untouched
-      out-of-sample period, without further tuning — not yet true on any run so far (best so far:
-      2026-07-23 full clean run, +5.60% vs +8.46% SPY, closest gap yet at -2.86pts, still behind)
+      out-of-sample period, without further tuning — not yet true on any run so far. Best QUBO
+      result: 2026-07-23 full clean run, +5.60% vs +8.46% SPY (-2.86pts, but tuned 4x on this same
+      window). Best genuinely clean out-of-sample result: the momentum factor's frozen validation
+      test, which came back negative (Sharpe -0.03, -7pts vs SPY) — see limitation #12
 - [x] QUBO could never sell — fixed 2026-07-22 (sell branch added)
 - [x] QUBO whipsaw from 1-slot target_assets — fixed 2026-07-23 (resized + exit hysteresis), but
       the hysteresis parameters themselves are unvalidated (limitation #8)
