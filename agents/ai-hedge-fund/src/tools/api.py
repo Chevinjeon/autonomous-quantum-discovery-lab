@@ -71,10 +71,26 @@ def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None)
     financial_api_key = api_key or os.environ.get("FINANCIAL_DATASETS_API_KEY")
     price_source = os.environ.get("AIF_PRICE_SOURCE", "").strip().lower()
     use_yahoo = price_source == "yahoo" or os.environ.get("AIF_USE_YAHOO", "").strip().lower() in {"1", "true", "yes"}
+    use_alpaca_only = price_source == "alpaca"
+    use_free_source = use_yahoo or use_alpaca_only or not financial_api_key
 
-    if financial_api_key and not use_yahoo:
+    if financial_api_key and not use_free_source:
         headers["X-API-KEY"] = financial_api_key
-    elif use_yahoo or not financial_api_key:
+    elif use_free_source:
+        if not use_yahoo:
+            # Alpaca is the default free-tier source - we already hold reliable
+            # paper-trading credentials, and it's a proper authenticated REST API
+            # rather than yfinance's DNS/scraping-prone endpoint. yfinance below
+            # is only the fallback if Alpaca has no credentials or fails.
+            from src.tools.alpaca_broker import get_alpaca_prices
+
+            prices = get_alpaca_prices(ticker, start_date, end_date)
+            if prices:
+                _cache.set_prices(cache_key, [p.model_dump() for p in prices])
+                return prices
+            if use_alpaca_only:
+                return []
+
         try:
             import yfinance as yf
         except Exception:

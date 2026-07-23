@@ -1,6 +1,7 @@
 import os
 
 from src.backtesting.types import Action, ActionLiteral
+from src.data.models import Price
 
 # Paper-only for now: no code path here ever targets Alpaca's live trading
 # endpoint. Flipping to live money is a deliberate future change, not a
@@ -26,6 +27,50 @@ def get_alpaca_trading_client():
         )
 
     return TradingClient(api_key, secret_key, paper=_PAPER)
+
+
+def get_alpaca_prices(ticker: str, start_date: str, end_date: str) -> list[Price]:
+    """Fetch daily historical bars from Alpaca's Market Data API (free IEX feed).
+
+    Returns [] rather than raising on missing credentials or any request failure,
+    so callers (get_prices in src/tools/api.py) can fall through to another
+    free source cleanly - same contract as every other data-source function here.
+    """
+    api_key = os.environ.get("ALPACA_API_KEY")
+    secret_key = os.environ.get("ALPACA_SECRET_KEY")
+    if not api_key or not secret_key:
+        return []
+
+    try:
+        from alpaca.data.enums import DataFeed
+        from alpaca.data.historical import StockHistoricalDataClient
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+
+        client = StockHistoricalDataClient(api_key, secret_key)
+        request = StockBarsRequest(
+            symbol_or_symbols=ticker,
+            timeframe=TimeFrame.Day,
+            start=start_date,
+            end=end_date,
+            feed=DataFeed.IEX,
+        )
+        bars = client.get_stock_bars(request)
+        ticker_bars = bars.data.get(ticker, [])
+    except Exception:
+        return []
+
+    return [
+        Price(
+            open=float(bar.open),
+            close=float(bar.close),
+            high=float(bar.high),
+            low=float(bar.low),
+            volume=int(bar.volume),
+            time=bar.timestamp.strftime("%Y-%m-%d"),
+        )
+        for bar in ticker_bars
+    ]
 
 
 def get_account_state(tickers: list[str]) -> dict:
