@@ -56,6 +56,9 @@ node_modules
 # Outputs
 outputs/
 
+# Local runtime state (QUBO exit-hysteresis streak counters, etc.)
+.cache/
+
 # Database files (users will have their own local databases)
 *.db
 *.db-journal

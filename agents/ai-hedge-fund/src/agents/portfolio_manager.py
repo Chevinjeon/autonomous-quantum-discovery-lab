@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import time
 import numpy as np
@@ -11,6 +12,7 @@ from typing_extensions import Literal
 from src.utils.progress import progress
 from src.utils.llm import call_llm
 from src.tools.synqubi_qubo import solve_portfolio_qubo
+from src.tools.qubo_streaks import load_streaks, save_streaks
 
 
 class PortfolioDecision(BaseModel):
@@ -253,7 +255,10 @@ def _maybe_qubo_decisions(
         target_env = os.getenv("AIF_QUBO_TARGET", "").strip()
         target_assets = int(target_env) if target_env.isdigit() else None
         if target_assets is None:
-            target_assets = max(1, min(len(tickers), len(tickers) // 3 or 1))
+            # ceil(n/2) rather than n//3: too few slots (e.g. 1 of 5) makes the
+            # selected set flip on tiny day-to-day signal noise, causing costly
+            # whipsaw buy/sell churn instead of stable positioning.
+            target_assets = max(1, min(len(tickers), math.ceil(len(tickers) / 2)))
 
         risk_aversion = float(os.getenv("AIF_QUBO_RISK_AVERSION", "1.0"))
         penalty = float(os.getenv("AIF_QUBO_PENALTY", "10.0"))
@@ -274,16 +279,48 @@ def _maybe_qubo_decisions(
     cash = float(portfolio.get("cash", 0.0))
     per_budget = cash / len(selected) if selected and cash > 0 else 0.0
 
+    positions = portfolio.get("positions", {}) or {}
+
+    # Exit hysteresis: require a held position to be deselected for several
+    # consecutive days before actually selling, so a single noisy signal flip
+    # doesn't trigger a sell-then-rebuy round trip the next day.
+    exit_streak_threshold = int(os.getenv("AIF_QUBO_EXIT_STREAK", "3"))
+    streaks = load_streaks()
+
     decisions: dict[str, PortfolioDecision] = {}
     for ticker in tickers:
         if ticker not in selected:
-            decisions[ticker] = PortfolioDecision(
-                action="hold",
-                quantity=0,
-                confidence=80,
-                reasoning="QUBO: not selected",
-            )
+            long_shares = int((positions.get(ticker, {}) or {}).get("long", 0) or 0)
+            if long_shares > 0:
+                streak = streaks.get(ticker, 0) + 1
+                if streak >= exit_streak_threshold:
+                    streaks[ticker] = 0
+                    decisions[ticker] = PortfolioDecision(
+                        action="sell",
+                        quantity=long_shares,
+                        confidence=80,
+                        reasoning="QUBO: deselected, exiting position",
+                    )
+                else:
+                    streaks[ticker] = streak
+                    decisions[ticker] = PortfolioDecision(
+                        action="hold",
+                        quantity=0,
+                        confidence=80,
+                        reasoning=f"QUBO: deselected (streak {streak}/{exit_streak_threshold}), holding pending confirmation",
+                    )
+            else:
+                streaks.pop(ticker, None)
+                decisions[ticker] = PortfolioDecision(
+                    action="hold",
+                    quantity=0,
+                    confidence=80,
+                    reasoning="QUBO: not selected",
+                )
             continue
+
+        # Back in the selected set - any prior deselection streak no longer applies.
+        streaks.pop(ticker, None)
 
         price = float(current_prices.get(ticker, 0.0))
         max_qty = int(max_shares.get(ticker, 0) or 0)
@@ -304,6 +341,7 @@ def _maybe_qubo_decisions(
                 reasoning="QUBO selected but no budget",
             )
 
+    save_streaks(streaks)
     return decisions
 
 
